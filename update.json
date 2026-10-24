@@ -1,10 +1,10 @@
 {
-  "version": "2.3.0",
+  "version": "2.3.1",
   "minNative": 1,
-  "notes": "Sound on by default + louder music. First mistake is just a fine, the second is a strike, and the Bucko Bombers need 6 strikes. Paid line moved further in with a 7-second grace. Doors are less touchy. Faster on laptops (auto low graphics). New aircraft. Name tags, ranks + XP, 14 badges, Golden Buckos, daily bonus.",
-  "page": "buckards-2.3.0.html",
+  "notes": "Aircraft remakes: camouflage, control surfaces, canopy frames, and missiles, bombs and fuel tanks under the wings.",
+  "page": "buckards-2.3.1.html",
   "apk": "Buckards.apk",
-  "sha256": "51ce3ff777d24f10d0f9a4e7bc76f90df050f5b70b65eb76415b7fba7f32c5c4",
-  "size": 160788,
-  "date": "2026-10-24T23:15:52.787Z"
+  "sha256": "5b4d1ae52cda079592c50ae3f80ae7fe7265eed56197769d7e5afefbae3ed2aa",
+  "size": 163997,
+  "date": "2026-10-24T23:59:03.677Z"
 }

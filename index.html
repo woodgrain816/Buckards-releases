@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.3.0";
+const GR_VERSION = "2.3.1";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Sound on by default + louder music. First mistake is just a fine, the second is a strike, and the Bucko Bombers need 6 strikes. Paid line moved further in with a 7-second grace. Doors are less touchy. Faster on laptops (auto low graphics). New aircraft. Name tags, ranks + XP, 14 badges, Golden Buckos, daily bonus.";
+const GR_NOTES = "Aircraft remakes: camouflage, control surfaces, canopy frames, and missiles, bombs and fuel tanks under the wings.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -1442,6 +1442,8 @@ function drawCeiling() {
    the published specs; chords, stations and nacelles estimated from 3-views. */
 const JD = {
   'A-10': { len: 16.26, col: '#6f7b80', font: 0.9, usaf: [8.4, 5.6],
+    stores: [[6.2, 4.1, 1.3, 0.17], [6.3, 5.5, 1.3, 0.17], [6.5, 6.9, 1.1, 0.15]], camo: '#59646a',
+    lines: [[[9.35, 0.8], [9.4, 2.6], [8.75, 8.6]], [[15.3, 0.35], [15.3, 2.85]], [[6.9, 2.6], [10.1, 2.6]]],
     fus: [[0.3, 0], [0.5, 0.4], [1.2, 0.65], [2.5, 0.78], [5.0, 0.8], [9.5, 0.75], [12.0, 0.55], [14.5, 0.38], [15.8, 0.22], [16.0, 0]],
     wing: [[6.9, 0.8], [6.9, 2.6], [7.2, 8.6], [7.45, 8.77], [9.0, 8.77], [9.1, 8.6], [10.1, 2.6], [10.1, 0.8]],
     htail: [[14.2, 0.35], [14.3, 2.85], [15.95, 2.85], [16.0, 0.35]],
@@ -1450,6 +1452,8 @@ const JD = {
     top: [{ e: [11.5, 1.55, 1.9, 0.65], intake: true }],
     canopy: { e: [3.45, 0, 1.15, 0.42] }, gun: [[-0.4, -0.3], [0.3, -0.3], [0.3, 0.12], [-0.4, 0.12]] },
   'F-15': { len: 19.45, col: '#8a959c', font: 0.85, usaf: [13.3, 4.2],
+    stores: [[11.6, 3.1, 1.7, 0.22], [12.6, 4.3, 1.4, 0.2]], camo: '#6f7a81',
+    lines: [[[14.4, 1.95], [15.3, 6.0]], [[7.0, 0], [16.5, 0]], [[9.2, 1.95], [9.2, 0.9]]],
     fus: [[0, 0], [1.0, 0.35], [2.5, 0.6], [4.0, 0.72], [5.4, 0.85], [5.9, 1.95], [15.5, 1.95], [17.5, 1.75], [18.2, 1.2], [19.0, 1.1], [19.0, 0]],
     wing: [[9.85, 1.95], [14.4, 6.5], [15.2, 6.52], [16.1, 6.2], [15.27, 1.95]],
     htail: [[15.7, 1.65], [18.4, 4.3], [19.4, 4.3], [19.0, 1.65]],
@@ -1457,6 +1461,8 @@ const JD = {
     panels: [[[5.4, 0.85], [8.0, 0.85], [8.0, 1.95], [5.9, 1.95]], [[7.6, 0], [7.6, 0.65], [10.3, 0.6], [10.3, 0]]],
     nozzles: [{ e: [18.65, 0.6, 0.35, 0.5] }], canopy: { e: [5.1, 0, 2.1, 0.5] } },
   'F-16': { len: 15.06, col: '#9ea9af', font: 0.7, usaf: [10.1, 3.1],
+    stores: [[7.9, 2.35, 2.3, 0.32], [8.9, 3.45, 1.6, 0.2]], camo: '#8b969c',
+    lines: [[[10.55, 0.9], [10.55, 4.45]], [[6.5, 0], [12.8, 0]]],
     fus: [[0, 0], [0.6, 0.25], [1.5, 0.45], [2.5, 0.55], [4.0, 0.62], [6.5, 0.8], [12.5, 0.85], [13.6, 0.7], [14.8, 0.58], [14.8, 0]],
     wing: [[3.6, 0.55], [5.2, 0.8], [6.6, 1.12], [7.65, 1.45], [10.27, 4.57], [11.4, 4.57], [11.4, 0.85]],
     htail: [[12.4, 0.85], [14.03, 2.79], [15.0, 2.79], [14.6, 0.85]],
@@ -1464,12 +1470,16 @@ const JD = {
     panels: [[[13.4, 0.6], [14.7, 0.6], [14.7, 0.95], [13.4, 0.95]]],
     missiles: [[9.1, 4.57, 3.0, 0.41]], nozzles: [{ e: [14.4, 0, 0.45, 0.55] }], canopy: { e: [4.3, 0, 1.8, 0.42] } },
   'F/A-18': { len: 18.31, col: '#7d8a94', font: 0.85, usaf: [12.0, 4.6],
+    stores: [[9.4, 2.95, 2.3, 0.33], [10.6, 4.6, 1.6, 0.2]], camo: '#6a7680',
+    lines: [[[12.95, 1.15], [12.45, 6.3]], [[9.3, 2.0], [13.7, 1.15]], [[7.5, 0], [16.6, 0]]],
     fus: [[0, 0], [0.8, 0.3], [2.0, 0.5], [3.9, 0.62], [7.0, 0.95], [9.5, 1.1], [14.0, 1.15], [16.3, 1.1], [17.4, 1.0], [17.9, 0.9], [17.9, 0]],
     wing: [[3.9, 0.62], [5.5, 0.95], [7.0, 1.35], [8.4, 1.75], [9.29, 2.0], [10.38, 4.0], [10.23, 4.02], [11.57, 6.45], [13.21, 6.45], [13.77, 1.1]],
     htail: [[15.0, 1.2], [17.14, 3.5], [18.31, 3.5], [17.9, 1.2]],
     fins: [[[11.2, 1.1], [13.6, 2.18], [15.4, 2.25], [15.0, 1.2]]],
     missiles: [[11.0, 6.45, 3.0, 0.36]], nozzles: [{ e: [17.5, 0.6, 0.45, 0.47] }], canopy: { e: [5.3, 0, 2.1, 0.48] } },
   'B-1': { len: 44.5, col: '#5a6067', font: 1.8, usaf: [31.3, 7.4],
+    camo: '#4b5157',
+    lines: [[[38.2, 10.5], [24.8, 0.9]], [[41.4, 0.9], [42.3, 6.6]], [[10.0, 0], [38.0, 0]]],
     fus: [[0, 0], [1.5, 0.5], [3.5, 0.95], [6.0, 1.3], [9.0, 1.55], [13.8, 1.6], [30.0, 1.6], [35.0, 1.4], [40.0, 1.0], [43.5, 0.5], [44.3, 0]],
     glove: [[13.8, 1.6], [21.6, 5.25], [23.6, 5.0], [26.0, 3.0], [26.0, 1.6]],
     wing: [[22.09, 5.49], [37.97, 12.07], [39.19, 10.49], [25.74, 0.73]],
@@ -1479,10 +1489,14 @@ const JD = {
     nozzles: [{ e: [32.0, 2.4, 0.55, 0.55] }, { e: [32.0, 3.6, 0.55, 0.55] }],
     panels: [[[4.0, 1.1], [5.2, 1.1], [5.0, 1.9]]], canopyPoly: [[6.2, 0], [6.6, 0.8], [8.8, 0.9], [8.8, 0]] },
   'B-21': { len: 18.6, col: '#3d434a', font: 1.6, usaf: [11.6, 13.5], flying: true,
+    camo: '#33393f',
+    lines: [[[16.6, 22.4], [11.7, 9.0]], [[13.3, 5.0], [15.2, 2.6]]],
     outline: [[0, 0], [0.7, 0.7], [15.36, 23.2], [17.4, 23.2], [11.0, 8.2], [14.6, 4.3], [14.2, 3.2], [18.6, 0]],
     panels: [[[4.5, 2.3], [6.0, 2.3], [6.0, 3.6], [4.8, 3.6]], [[13.5, 1.5], [16.5, 1.5], [16.0, 4.0], [13.5, 4.0]]],
     canopyPoly: [[2.6, 0], [2.9, 0.6], [3.6, 1.2], [4.0, 1.0], [4.0, 0]] },
   'B-52': { len: 48.5, col: '#6b7176', font: 2.0, usaf: [30.1, 13.0],
+    camo: '#5d6368',
+    lines: [[[39.3, 28.0], [25.2, 1.45]], [[45.2, 0.9], [46.9, 7.8]], [[8.0, 0], [40.0, 0]], [[27.0, 6.0], [30.0, 10.1]]],
     fus: [[0, 0], [1.0, 0.75], [2.5, 1.2], [5.0, 1.45], [36.0, 1.45], [42.0, 1.0], [46.5, 0.5], [48.0, 0.25], [48.5, 0]],
     wing: [[17.57, 1.45], [37.37, 28.2], [41.0, 28.2], [26.77, 1.45]],
     htail: [[40.3, 0.9], [45.97, 7.9], [47.97, 7.9], [45.9, 0.9]],
@@ -1492,6 +1506,28 @@ const JD = {
     canopyPoly: [[3.5, 0], [4.0, 1.1], [6.5, 1.2], [6.5, 0]] }
 };
 const JET_U = 14;                       // world units per metre
+/* camouflage blotches clipped to the airframe, then hinge/panel lines and a spine highlight.
+   Blotch positions are seeded by the aircraft so they never shimmer. */
+function airframeDetail(J, P, half, shadow) {
+  if (shadow || lowFX()) return;
+  const span = Math.max(...(J.wing || J.outline).map(p => p[1]));
+  g.save(); g.beginPath();
+  const add = (pts, m) => pts.forEach(([px, py], i) => { const [X, Y] = P(px, m * py); i ? g.lineTo(X, Y) : g.moveTo(X, Y); });
+  for (const m of [1, -1]) { if (J.wing) { add(J.wing, m); g.closePath(); } if (J.htail) { add(J.htail, m); g.closePath(); } if (J.glove) { add(J.glove, m); g.closePath(); } if (J.outline) { add(J.outline, m); g.closePath(); } }
+  if (J.fus) { add(J.fus, 1); for (let i = J.fus.length - 1; i >= 0; i--) { const [X, Y] = P(J.fus[i][0], -J.fus[i][1]); g.lineTo(X, Y); } g.closePath(); }
+  g.clip();
+  let seed = J.len * 1000; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = shade(J.col, -30); g.globalAlpha = 0.6;
+  for (let i = 0; i < 16; i++) {
+    const [X, Y] = P(r() * J.len, (r() * 2 - 1) * span), rad = J.len * (0.05 + r() * 0.07);
+    g.beginPath(); for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, rr4 = rad * (0.7 + r() * 0.5); g.lineTo(X + Math.cos(a) * rr4 * 1.4, Y + Math.sin(a) * rr4); } g.closePath(); g.fill();
+  }
+  g.globalAlpha = 1; g.restore();
+  g.strokeStyle = 'rgba(0,0,0,0.38)'; g.lineWidth = J.len > 30 ? 0.12 : 0.06;
+  for (const ln of J.lines || []) for (const m of [1, -1]) { if (ln.every(p => p[1] === 0) && m < 0) continue; g.beginPath(); ln.forEach(([px, py], i) => { const [X, Y] = P(px, m * py); i ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.stroke(); }
+  if (J.fus) { const [X0] = P(J.len * 0.12, 0), [X1] = P(J.len * 0.85, 0); g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = J.len > 30 ? 0.5 : 0.25; g.beginPath(); g.moveTo(X0, -0.15); g.lineTo(X1, -0.15); g.stroke(); }
+  g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 0.07;
+}
 function drawJet(ac, x, y, ang, s, shadow) {
   const J = JD[ac], c = J.len / 2;
   g.save(); g.translate(x, y); g.rotate(ang); g.scale(s * JET_U, s * JET_U);
@@ -1512,10 +1548,12 @@ function drawJet(ac, x, y, ang, s, shadow) {
     if (!shadow) {
       const hump = g.createRadialGradient(...P(8, 0), 0.5, ...P(8, 0), 8); hump.addColorStop(0, 'rgba(255,255,255,0.12)'); hump.addColorStop(1, 'rgba(255,255,255,0)');
       g.fillStyle = hump; g.beginPath(); g.ellipse(...P(8, 0), 7, 4.5, 0, 0, 7); g.fill();
+      airframeDetail(J, P, half, shadow);
       for (const p of J.panels) both(p, K(-18));
     }
   } else {
     for (const u of J.under || []) ell(u.e, K(-20));
+    for (const [sx, sy, sl, sw] of J.stores || []) ell([sx, sy, sl, sw], shadow ? '#000' : '#d8d8d0');
     if (J.nacelles) for (const n of J.nacelles) { ell(n, K(-28)); if (!shadow) ell([n[0] - n[2] + 0.35, n[1], 0.3, n[3] * 0.7], '#151515'); }
     both(J.wing, K(-8));
     if (J.glove) both(J.glove, K(-4));
@@ -1526,6 +1564,7 @@ function drawJet(ac, x, y, ang, s, shadow) {
       const w = Math.max(...J.fus.map(p => p[1])), fg = g.createLinearGradient(0, -w, 0, w);
       fg.addColorStop(0, shade(J.col, -10)); fg.addColorStop(0.45, shade(J.col, 20)); fg.addColorStop(1, shade(J.col, -16));
       whole(J.fus, fg);
+      airframeDetail(J, P, half, shadow);
       for (const p of J.panels || []) both(p, K(-16));
       for (const t of J.top || []) { ell(t.e, K(-24)); if (t.intake) ell([t.e[0] - t.e[2] + 0.25, t.e[1], 0.22, t.e[3] * 0.8], '#151515'); }
       for (const n of J.nozzles || []) ell(n.e, '#2a2a2a');
@@ -1536,7 +1575,7 @@ function drawJet(ac, x, y, ang, s, shadow) {
   }
   if (!shadow) {
     g.fillStyle = '#22333f';
-    if (J.canopy) { const [X, Y] = P(J.canopy.e[0], 0); g.beginPath(); g.ellipse(X, Y, J.canopy.e[2], J.canopy.e[3], 0, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.45)'; g.beginPath(); g.ellipse(X + J.canopy.e[2] * 0.3, Y - J.canopy.e[3] * 0.35, J.canopy.e[2] * 0.35, J.canopy.e[3] * 0.25, 0, 0, 7); g.fill(); }
+    if (J.canopy) { const [X, Y] = P(J.canopy.e[0], 0); g.beginPath(); g.ellipse(X, Y, J.canopy.e[2], J.canopy.e[3], 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 0.06; g.beginPath(); g.moveTo(X + J.canopy.e[2] * 0.25, Y - J.canopy.e[3]); g.lineTo(X + J.canopy.e[2] * 0.25, Y + J.canopy.e[3]); g.stroke(); g.fillStyle = 'rgba(255,255,255,0.45)'; g.beginPath(); g.ellipse(X + J.canopy.e[2] * 0.3, Y - J.canopy.e[3] * 0.35, J.canopy.e[2] * 0.35, J.canopy.e[3] * 0.25, 0, 0, 7); g.fill(); }
     if (J.canopyPoly) { g.fillStyle = '#1b2832'; whole(J.canopyPoly, '#1b2832'); }
     // national markings: star roundel on the left wing, USAF on the right, reading along the span
     const [ux, uy] = J.usaf, fsz = J.font;
