@@ -1,10 +1,10 @@
 {
-  "version": "2.0.0",
+  "version": "2.0.1",
   "minNative": 1,
-  "notes": "Big overhaul: Buckos shop first, sneaky Buckos, quests, police, escalating airstrikes up to the B-52, total score, lucky exits, perks, music, auto-updates.",
-  "page": "buckards-2.0.0.html",
+  "notes": "No more flashing: removed every blink, flicker and screen flash (seizure safety).",
+  "page": "buckards-2.0.1.html",
   "apk": "Buckards.apk",
-  "sha256": "6fa630c8ac44c03cae86b78c9213a7ba93e04afac7bcf4dbcc18090154ba7fcd",
-  "size": 134101,
-  "date": "2026-10-24T21:37:27.195Z"
+  "sha256": "6b5a3ba514706e806e12d25d45e6ad1568a712d2b06b9e480c411b9eb8e42cb7",
+  "size": 133695,
+  "date": "2026-10-24T21:54:24.872Z"
 }
