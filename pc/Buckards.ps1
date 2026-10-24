@@ -2,6 +2,7 @@
 # downloads + verifies it (SHA-256), then opens the game in its own window.
 # Offline or GitHub down? It just opens the copy it already has.
 # Lives in %LOCALAPPDATA%\Buckards next to game.html (install_pc.ps1 puts it there).
+param([switch]$NoLaunch)    # -NoLaunch: update only (for testing)
 $ErrorActionPreference = 'Stop'
 $dir  = Split-Path -Parent $MyInvocation.MyCommand.Path
 $game = Join-Path $dir 'game.html'
@@ -26,6 +27,7 @@ try {
   }
 } catch { }   # no internet: play what we have
 
+if ($NoLaunch) { "game.html is v$(PageVersion $game)"; return }
 $uri = ([Uri]$game).AbsoluteUri
 $edge = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 if ($edge) { Start-Process $edge -ArgumentList "--app=$uri", '--window-size=1500,900' }
