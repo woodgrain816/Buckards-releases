@@ -8,7 +8,7 @@ from an A-10 all the way up to a B-52.
 This repo is the release + auto-update channel.
 
 - **Android:** download [Buckards.apk](Buckards.apk) and install it. It updates itself on launch.
-- **Windows:** download the `pc` folder, then run `install_pc.ps1` (right-click > Run with PowerShell).
-  The Desktop shortcut checks for a new version every time you open the game.
+- **Windows:** download [Buckards.zip](Buckards.zip), unzip, double-click Buckards.exe. Online it always opens the newest version.
+- **Browser (any PC):** https://woodgrain816.github.io/Buckards-releases/
 
 `update.json` points at the current game page; the apps read it.
