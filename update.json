@@ -1,10 +1,10 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "minNative": 1,
-  "notes": "Easier: police chase down runners, Buckos are more patient, fewer sneaky ones, 5 clean exits in a row clears a strike, the paid line warns you first. Updates arrive while you play.",
-  "page": "buckards-2.2.0.html",
+  "notes": "Sound on by default + louder music. First mistake is just a fine, the second is a strike, and the Bucko Bombers need 6 strikes. Paid line moved further in with a 7-second grace. Doors are less touchy. Faster on laptops (auto low graphics). New aircraft. Name tags, ranks + XP, 14 badges, Golden Buckos, daily bonus.",
+  "page": "buckards-2.3.0.html",
   "apk": "Buckards.apk",
-  "sha256": "ebf803913f5999d9bf5d5622769691658a1452c6c8bf12fbc60ef5f41d8f6df4",
-  "size": 148950,
-  "date": "2026-10-24T23:03:45.258Z"
+  "sha256": "51ce3ff777d24f10d0f9a4e7bc76f90df050f5b70b65eb76415b7fba7f32c5c4",
+  "size": 160788,
+  "date": "2026-10-24T23:15:52.787Z"
 }
