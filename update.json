@@ -1,10 +1,10 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "minNative": 1,
-  "notes": "Polish: screen fades, buttons that react, coins fly to your wallet, big banners, Buckos push carts, receipts print line by line, YOU marker, screen-shake switch. Plus a Windows .exe.",
-  "page": "buckards-2.1.0.html",
+  "notes": "Easier: police chase down runners, Buckos are more patient, fewer sneaky ones, 5 clean exits in a row clears a strike, the paid line warns you first. Updates arrive while you play.",
+  "page": "buckards-2.2.0.html",
   "apk": "Buckards.apk",
-  "sha256": "00231d2f871dfe331c9d75c990da30beb7c1d0c331d38e7d3e6ba45503e301ed",
-  "size": 146368,
-  "date": "2026-10-24T22:26:58.107Z"
+  "sha256": "ebf803913f5999d9bf5d5622769691658a1452c6c8bf12fbc60ef5f41d8f6df4",
+  "size": 148950,
+  "date": "2026-10-24T23:03:45.258Z"
 }

@@ -27,9 +27,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.1.0";
+const GR_VERSION = "2.2.0";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Polish: screen fades, buttons that react, coins fly to your wallet, big banners, Buckos push carts, receipts print line by line, YOU marker, screen-shake switch. Plus a Windows .exe.";
+const GR_NOTES = "Easier: police chase down runners, Buckos are more patient, fewer sneaky ones, 5 clean exits in a row clears a strike, the paid line warns you first. Updates arrive while you play.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -334,7 +334,7 @@ function newBucko(type, x, y, entering) {
     state: entering ? 'entering' : 'shop', target: entering ? { x: 190, y: 640 } : null, pause: rnd(0, 1.5),
     stuck: 0, cool: 0, has: false, hunt: 0, need: rnd(1.6, 3.4), scanned: false, scanT: 0, walk: rnd(0, 6), out: 0,
     dir: 1, vx: 0, vy: 0, seed: rnd(0, 10), say: null, chat: rnd(4, 12), lure: 0, nag: 0, patience: 0, patMax: 1,
-    sneaky: type !== 'contractor' && Math.random() < Math.min(0.35, 0.04 + 0.04 * G.day) };
+    sneaky: type !== 'contractor' && Math.random() < Math.min(0.25, 0.02 + 0.025 * G.day) };
 }
 
 /* ------------------------------------------------------------ game state */
@@ -344,7 +344,7 @@ const PERKS = [
   { id: 'scanner', name: 'Coupon Scanner 3000', desc: 'Coupon Buckos scan twice as fast', max: 1, price: () => 250 },
   { id: 'whistle', name: 'Manager Whistle', desc: 'Call nearby Buckos over (Q / button)', max: 1, price: () => 350 },
   { id: 'map', name: 'Store Map App', desc: 'Always shows which aisle each Bucko wants', max: 1, price: () => 120 },
-  { id: 'bribe', name: 'Bribe a Senator', desc: 'Removes one Government strike', max: 99, price: () => 400 + 300 * G.perks.bribe }
+  { id: 'bribe', name: 'Bribe a Senator', desc: 'Removes one Government strike', max: 99, price: () => 300 + 200 * G.perks.bribe }
 ];
 const DAY_TEXT = {
   1: ['Every Bucko comes in for ONE thing.', 'Let him find it, ring him up, then out the EXIT.'],
@@ -388,7 +388,7 @@ function dayCfg(d) {
 function rollType(w) { let s = w.reduce((a, b) => a + b[1], 0) * Math.random(); for (const [t, k] of w) if ((s -= k) <= 0) return t; return 'regular'; }
 
 function newGame() {
-  Object.assign(G, { coins: [], banner: null, showCash: 0, extra: 0, day: 1, strikes: 0, cash: 0, removed: 0, newBest: false, streak: 0, bestStreak: 0, snap: null, level: 0, quest: null,
+  Object.assign(G, { clean: 0, coins: [], banner: null, showCash: 0, extra: 0, day: 1, strikes: 0, cash: 0, removed: 0, newBest: false, streak: 0, bestStreak: 0, snap: null, level: 0, quest: null,
     perks: { shoes: 0, lanyard: 0, scanner: 0, whistle: 0, map: 0, bribe: 0 } });
   startDay();
 }
@@ -446,7 +446,7 @@ function strike(why) {
     if (G.toast) G.toast.extra = G.extra;
     return;
   }
-  G.strikes++; G.streak = 0;
+  G.strikes++; G.streak = 0; G.clean = 0;
   const f = G.strikes >= 3 ? 0 : 50 + 25 * G.day;          // the third one's fine comes with the airstrike
   if (f) fine(f);
   S.bad(); G.shake = 12; buzz([80, 60, 160]);
@@ -458,6 +458,13 @@ function strike(why) {
 function callCop() {
   S.copWhistle();
   G.cops.push({ x: rnd(150, 230), y: 880, vx: 0, vy: 0, walk: 0, dir: 1, seed: rnd(0, 9), t: 0, phase: 'in', say: null });
+}
+/* a runner gets an officer on his tail, coming in from the front doors */
+function sendGuard(b) {
+  if (G.cops.some(c => c.chase === b)) return;
+  S.copWhistle();
+  G.cops.push({ x: rnd(700, 900), y: 870, vx: 0, vy: 0, walk: 0, dir: 1, seed: rnd(0, 9), t: 0, phase: 'chase', chase: b,
+    say: { text: 'HEY! STOP RIGHT THERE!', t: 0, life: 2 } });
 }
 function paSay(text) { G.pa = { text, t: 0 }; S.chime(); }
 
@@ -578,8 +585,8 @@ function stepToward(o, t, sp, dt) {
   return d;
 }
 function patienceFor(b) {
-  const base = b.sneaky ? rnd(12, 22) : rnd(45, 80);
-  return base * Math.max(0.45, 1 - 0.07 * (G.day - 1));
+  const base = b.sneaky ? rnd(25, 40) : rnd(60, 100);
+  return base * Math.max(0.6, 1 - 0.05 * (G.day - 1));
 }
 function gotIt(b, quiet) {
   b.has = true; if (b.state !== 'chain') b.state = 'wait'; b.target = null;
@@ -659,7 +666,7 @@ function update(dt) {
     if (b.state === 'wait' && b.type !== 'contractor' && !b.scanned) {
       b.patience -= dt;
       if (b.patience < 12 && b.chat > 3) { b.chat = rnd(1.5, 3); say(b, 'impatient', 1.8); }
-      if (b.patience <= 0) { b.state = 'runner'; b.target = null; say(b, 'run', 2.2); S.tone(500, 0.25, 'sawtooth', 0.06, 300); pop(b.x, b.y - 52, 'RUNNER!', '#ff5050', 20); }
+      if (b.patience <= 0) { b.state = 'runner'; b.target = null; say(b, 'run', 2.2); S.tone(500, 0.25, 'sawtooth', 0.06, 300); pop(b.x, b.y - 52, 'RUNNER!', '#ff5050', 20); sendGuard(b); }
     }
     if (b.state === 'runner') {
       const tgt = runnerTarget(b);
@@ -699,7 +706,18 @@ function update(dt) {
   // police: walk over, yell, leave
   for (const c of G.cops) {
     c.t += dt;
-    if (c.phase === 'in') { stepToward(c, { x: p.x + 40, y: p.y + 10 }, 240, dt); c.walk += dt * 11; pushOut(c, R); if (dist(c, p) < 70 || c.t > 4) { c.phase = 'yell'; c.t = 0; c.say = { text: G.strikes <= 1 ? COP_LINES[0] : pick(COP_LINES), t: 0, life: 3.2 }; } }
+    if (c.phase === 'chase') {
+      const b = c.chase;
+      if (!b || b.state !== 'runner') { c.phase = 'out'; c.t = 0; }
+      else {
+        stepToward(c, b, 180, dt); c.walk += dt * 13; if (c.y < 860) pushOut(c, R);
+        if (dist(c, b) < 32) {
+          b.state = 'wait'; b.patMax = b.patience = 35; b.cool = 1.5; b.target = null; say(b, 'caught', 2);
+          c.say = { text: pick(['Nice try, pal. Go PAY for your Bucko Goods!', 'Not on my watch!', 'Back inside. Register. Now.']), t: 0, life: 2.6 };
+          c.phase = 'yell'; c.t = 1; pop(b.x, b.y - 52, 'STOPPED BY POLICE', '#7dbaff', 20); S.tone(700, 0.15, 'triangle', 0.1);
+        }
+      }
+    } else if (c.phase === 'in') { stepToward(c, { x: p.x + 40, y: p.y + 10 }, 240, dt); c.walk += dt * 11; pushOut(c, R); if (dist(c, p) < 70 || c.t > 4) { c.phase = 'yell'; c.t = 0; c.say = { text: G.strikes <= 1 ? COP_LINES[0] : pick(COP_LINES), t: 0, life: 3.2 }; } }
     else if (c.phase === 'yell') { c.vx = c.vy = 0; c.dir = p.x > c.x ? 1 : -1; if (c.t > 3.4) { c.phase = 'out'; c.t = 0; } }
     else { stepToward(c, { x: EXIT.x + 80, y: 900 }, 200, dt); c.walk += dt * 10; if (c.y > 880) c.gone = true; }
   }
@@ -733,10 +751,14 @@ function update(dt) {
       }
     } else if (!inLane && b.type === 'coupon' && !b.scanned && b.scanT > 0) b.scanT = Math.max(0, b.scanT - dt * 2);
     // a paid Bucko goes OUT, not back into the store
-    if (b.scanned && b.y < BACK_IN_Y) {
-      b.scanned = false; b.scanT = 0; pop(b.x, b.y - 52, 'RECEIPT VOID', '#ff5050', 20);
-      strike(`You took ${b.name} back into the store after he paid. Paid Buckos go OUT.`);
-    }
+    if (b.scanned && b.type !== 'contractor' && b.y < BACK_IN_Y) {
+      b.backT = (b.backT || 0) + dt;
+      if (!b.backWarned) { b.backWarned = true; pop(b.x, b.y - 52, 'WRONG WAY - paid Buckos go OUT', '#ffcc00', 18); b.say = { text: 'Uh, I already paid...', t: 0, life: 1.8 }; S.nope(); }
+      if (b.y < 580 || b.backT > 3) {        // properly back among the shelves, or dawdling there
+        b.scanned = false; b.scanT = 0; b.backT = 0; b.backWarned = false; pop(b.x, b.y - 52, 'RECEIPT VOID', '#ff5050', 20);
+        strike(`You took ${b.name} back into the store after he paid. Paid Buckos go OUT.`);
+      }
+    } else if (b.backT) { b.backT = 0; b.backWarned = false; }
     if (b.y > ZONE_Y && b.x > EXIT.x && b.x < EXIT.x + EXIT.w) leave(b, 'exit');
     else if (b.y > ZONE_Y && b.x > ENTRANCE.x && b.x < ENTRANCE.x + ENTRANCE.w) leave(b, 'entrance');
     else if (b.x > 1465 && b.y > GATE.y && b.y < GATE.y + GATE.h) leave(b, 'gate');
@@ -772,6 +794,8 @@ function leave(b, door) {
   G.removed++; G.dayRemoved++;
   if (bad) { pop(b.x, b.y - 52, 'WRONG!', '#ff4d4d', 30); b.say = { text: 'Uh oh...', t: 0, life: 1.2 }; strike(bad); return; }
   G.streak++; G.bestStreak = Math.max(G.bestStreak, G.streak);
+  G.clean = (G.clean || 0) + 1;
+  if (G.clean >= 5 && G.strikes > 0) { G.strikes--; G.clean = 0; S.fanfare(); banner('GOOD BEHAVIOR', '5 clean exits in a row - one strike removed', '#7dff7d'); }
   G.trip = G.clock - G.lastOut < 2.5 ? G.trip + 1 : 1; G.lastOut = G.clock;
   const mult = 1 + 0.25 * Math.min(G.streak - 1, 8);
   let v = (b.type === 'contractor' ? 120 + rnd(0, 380) : b.price + 10) * mult;
@@ -1044,7 +1068,7 @@ function drawStaticWorld() {
   for (let x = 680; x < 1300; x += 120) { g.fillStyle = 'rgba(30,160,80,0.28)'; g.beginPath(); g.moveTo(x, 790); g.lineTo(x + 40, 790); g.lineTo(x + 40, 780); g.lineTo(x + 62, 800); g.lineTo(x + 40, 820); g.lineTo(x + 40, 810); g.lineTo(x, 810); g.fill(); }
   // the line paid Buckos must not cross going back in
   g.strokeStyle = 'rgba(200,40,40,0.35)'; g.lineWidth = 3; g.setLineDash([10, 8]); g.beginPath(); g.moveTo(330, BACK_IN_Y); g.lineTo(1360, BACK_IN_Y); g.stroke(); g.setLineDash([]);
-  text('PAID BUCKOS: NO RE-ENTRY ↓', 1200, BACK_IN_Y - 10, 11, 'rgba(160,30,30,0.55)', 'center', '800', null, FB);
+  text('PAID BUCKOS: DON\'T GO BACK IN', 1200, BACK_IN_Y - 10, 11, 'rgba(160,30,30,0.55)', 'center', '800', null, FB);
   g.save(); g.beginPath(); g.rect(30, 690, 300, 60); g.clip();
   g.fillStyle = 'rgba(200,40,40,0.08)'; g.fillRect(30, 690, 300, 60);
   g.strokeStyle = 'rgba(200,40,40,0.22)'; g.lineWidth = 6; for (let x = 0; x < 400; x += 24) { g.beginPath(); g.moveTo(x, 690); g.lineTo(x + 60, 750); g.stroke(); }
@@ -1449,6 +1473,7 @@ function drawHUD() {
     g.strokeStyle = on ? '#ffe14d' : 'rgba(255,255,255,0.3)'; g.lineWidth = 2; g.stroke();
     text(on ? '!' : '★', x, y + 1, 11, on ? '#fff' : 'rgba(255,255,255,0.35)', 'center', '900', null, FB);
   }
+  if (G.strikes > 0) text(`clean ${G.clean || 0}/5`, 780, 46, 9, '#9dffb0', 'center', '800', null, FB);
   text('NEXT:', 846, 18, 10, '#ffb0a0', 'left', '800', null, FB);
   const acW = fitText(T.ac, 846, 36, 80, 18, G.strikes >= 2 ? '#ff6b6b' : '#fff');
   fitText(T.w, 846 + acW + 10, 37, 1020 - (846 + acW + 10), 13, '#ffd0c0', 'left', '800', FB);
@@ -1699,11 +1724,13 @@ function drawUpdateBanner(x, y) {
   const u = G.update; if (!u) return;
   const label = u.state === 'ready' ? `Version ${u.version} is ready - tap to restart`
     : u.state === 'apk' ? `New app version ${u.version} - tap to download`
+    : u.state === 'web' ? `Version ${u.version} is out - tap to update`
     : `Version ${u.version} is out - close Buckards and open it again to update`;
   g.font = `800 18px ${FB}`; const w = g.measureText(label).width + 50;
   g.fillStyle = '#ffe14d'; rr(x - w / 2, y - 22, w, 44, 22); g.fill(); g.strokeStyle = '#06331a'; g.lineWidth = 3; g.stroke();
   text(label, x, y + 1, 18, '#06331a', 'center', '800', null, FB);
-  if (APP) hit(x - w / 2, y - 22, w, 44, () => { if (u.state === 'ready') APP.reload(); else APP.openApk(); });
+  if (u.state === 'web') hit(x - w / 2, y - 22, w, 44, () => freshLoad(u.version));
+  else if (APP) hit(x - w / 2, y - 22, w, 44, () => { if (u.state === 'ready') APP.reload(); else APP.openApk(); });
 }
 function drawIntro() {
   const x = 360, y = 200, w = 880, h = 560;
@@ -1754,6 +1781,7 @@ function drawSummary() {
   text('THANK YOU FOR SHOPPING BUCKARDS', x + w / 2, y + 510, 13, '#444', 'center', '700', null, FM);
   g.globalAlpha = 1;
   button(x + 40, y + h - 90, w - 80, 60, 'PERKS CATALOG →', () => { G.state = 'shop'; }, { size: 24 });
+  drawUpdateBanner(800, 125);
 }
 function drawShop() {
   paper(250, 150, 1100, 640);
@@ -2025,10 +2053,19 @@ requestAnimationFrame(frame);
 /* updates: the Android wrapper calls grUpdate when it has one; on the PC the
    launcher does the updating and the page only says that a new version is out */
 window.grUpdate = (state, version, notes) => { G.update = { state, version, notes }; };
-if (!APP && /^(file|https?):$/.test(location.protocol) && !/localhost|127\.0\.0\.1/.test(location.host)) {
-  fetch(UPDATE_URL + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
-    .then(m => { if (m && newer(m.version, GR_VERSION)) G.update = { state: 'pc', version: m.version, notes: m.notes }; }).catch(() => {});
+const ON_WEB = /github\.io$/.test(location.host);        // the copy GitHub Pages serves (what the exe opens)
+function freshLoad(v) { location.replace(location.pathname + '?v=' + encodeURIComponent(v) + location.hash); }
+function checkUpdate() {
+  if (APP) { try { APP.check(); } catch (e) {} return; }     // the Android wrapper downloads it and calls grUpdate
+  if (!/^(file|https?):$/.test(location.protocol) || /localhost|127\.0\.0\.1/.test(location.host)) return;
+  fetch(UPDATE_URL + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(m => {
+    if (!m || !newer(m.version, GR_VERSION)) return;
+    if (ON_WEB && G.state === 'title') { freshLoad(m.version); return; }        // nothing to lose on the title screen: just update
+    G.update = { state: ON_WEB ? 'web' : 'pc', version: m.version, notes: m.notes };
+  }).catch(() => {});
 }
+checkUpdate();
+setInterval(checkUpdate, 4 * 60 * 1000);
 </script>
 </body>
 </html>
