@@ -1,10 +1,10 @@
 {
-  "version": "2.0.2",
+  "version": "2.1.0",
   "minNative": 1,
-  "notes": "New title screen: lined-up store front, a proper parking lot with real cars, tidy text.",
-  "page": "buckards-2.0.2.html",
+  "notes": "Polish: screen fades, buttons that react, coins fly to your wallet, big banners, Buckos push carts, receipts print line by line, YOU marker, screen-shake switch. Plus a Windows .exe.",
+  "page": "buckards-2.1.0.html",
   "apk": "Buckards.apk",
-  "sha256": "f5277c8121a4d9c668f8f4519681146bfdd12d5d04a03adab6c16efe4cbbb90b",
-  "size": 139350,
-  "date": "2026-10-24T22:10:52.416Z"
+  "sha256": "00231d2f871dfe331c9d75c990da30beb7c1d0c331d38e7d3e6ba45503e301ed",
+  "size": 146368,
+  "date": "2026-10-24T22:26:58.107Z"
 }
