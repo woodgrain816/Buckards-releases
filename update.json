@@ -1,10 +1,10 @@
 {
-  "version": "2.0.1",
+  "version": "2.0.2",
   "minNative": 1,
-  "notes": "No more flashing: removed every blink, flicker and screen flash (seizure safety).",
-  "page": "buckards-2.0.1.html",
+  "notes": "New title screen: lined-up store front, a proper parking lot with real cars, tidy text.",
+  "page": "buckards-2.0.2.html",
   "apk": "Buckards.apk",
-  "sha256": "6b5a3ba514706e806e12d25d45e6ad1568a712d2b06b9e480c411b9eb8e42cb7",
-  "size": 133695,
-  "date": "2026-10-24T21:54:24.872Z"
+  "sha256": "f5277c8121a4d9c668f8f4519681146bfdd12d5d04a03adab6c16efe4cbbb90b",
+  "size": 139350,
+  "date": "2026-10-24T22:10:52.416Z"
 }

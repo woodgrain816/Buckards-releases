@@ -27,9 +27,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.0.1";
+const GR_VERSION = "2.0.2";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "No more flashing: removed every blink, flicker and screen flash (seizure safety).";
+const GR_NOTES = "New title screen: lined-up store front, a proper parking lot with real cars, tidy text.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -1529,41 +1529,122 @@ function paper(x, y, w, h) {
 const TITLE_LOOKS = ['regular', 'coupon', 'contractor', 'regular', 'squirrely', 'regular'].map(makeLook);
 const INTRO_LOOKS = { coupon: makeLook('coupon'), contractor: makeLook('contractor'), squirrely: makeLook('squirrely') };
 const TITLE_PLANES = ['A-10', 'F-15', 'F-16', 'F/A-18', 'B-1', 'B-21', 'B-52'];
+function drawCar(x, y, col, kind) {        // a parked car seen from above, nose up, centred on (x, y)
+  const w = kind === 'truck' ? 62 : 56, h = kind === 'truck' ? 112 : 96;
+  g.save(); g.translate(x, y);
+  g.fillStyle = 'rgba(0,0,0,0.28)'; rr(-w / 2 + 4, -h / 2 + 6, w, h, 12); g.fill();
+  const body = g.createLinearGradient(-w / 2, 0, w / 2, 0); body.addColorStop(0, shade(col, -25)); body.addColorStop(0.5, shade(col, 20)); body.addColorStop(1, shade(col, -25));
+  g.fillStyle = body; rr(-w / 2, -h / 2, w, h, 12); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,0.45)'; g.lineWidth = 2; g.stroke();
+  g.fillStyle = '#1d2a35'; rr(-w / 2 + 7, -h / 2 + 16, w - 14, 16, 5); g.fill();               // windshield
+  g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(-w / 2 + 10, -h / 2 + 18, 10, 4);
+  if (kind === 'truck') {
+    g.fillStyle = shade(col, 8); rr(-w / 2 + 6, -h / 2 + 34, w - 12, 22, 4); g.fill();            // cab roof
+    g.fillStyle = '#1d2a35'; g.fillRect(-w / 2 + 8, -h / 2 + 57, w - 16, 6);                      // rear window
+    g.fillStyle = shade(col, -35); rr(-w / 2 + 6, -h / 2 + 66, w - 12, h - 72, 3); g.fill();      // bed
+    g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1;
+    for (let k = 1; k < 4; k++) { const yy = -h / 2 + 66 + k * (h - 72) / 4; g.beginPath(); g.moveTo(-w / 2 + 8, yy); g.lineTo(w / 2 - 8, yy); g.stroke(); }
+  } else {
+    g.fillStyle = shade(col, 10); rr(-w / 2 + 6, -h / 2 + 34, w - 12, 32, 6); g.fill();             // roof
+    g.fillStyle = '#1d2a35'; rr(-w / 2 + 8, -h / 2 + 68, w - 16, 12, 4); g.fill();                // rear window
+  }
+  g.fillStyle = '#fff6c8'; g.fillRect(-w / 2 + 5, -h / 2 + 2, 10, 4); g.fillRect(w / 2 - 15, -h / 2 + 2, 10, 4);   // headlights
+  g.fillStyle = '#b02020'; g.fillRect(-w / 2 + 5, h / 2 - 6, 10, 4); g.fillRect(w / 2 - 15, h / 2 - 6, 10, 4);     // tail lights
+  g.fillStyle = '#222';
+  for (const sx of [-1, 1]) { const tx = sx > 0 ? w / 2 - 1 : -w / 2 - 2; g.fillRect(tx, -h / 2 + 14, 3, 14); g.fillRect(tx, h / 2 - 28, 3, 14); }   // tyres peeking out
+  g.restore();
+}
+/* the title: the store at dusk, its parking lot, Buckos heading in, the fleet overhead.
+   Laid out on a grid so nothing sits under the text column in the middle. */
+const LOT_CARS = [   // [stall column, row, colour, kind]: stalls are 100 wide, column c spans 40+100c .. 140+100c
+  [0, 0, '#8a1a1a', 'truck'], [2, 0, '#1f3f6f', 'car'], [1, 1, '#d8d8d0', 'truck'], [-1, 1, '#4a2d6b', 'car'],
+  [13, 0, '#2d5a27', 'truck'], [15, 0, '#c7a02a', 'truck'], [14, 1, '#6a6a6a', 'car'], [16, 1, '#7a3a1a', 'truck']];
 function drawTitle(t) {
-  const sky = g.createLinearGradient(0, 0, 0, 300); sky.addColorStop(0, '#2b3f73'); sky.addColorStop(0.6, '#e98a53'); sky.addColorStop(1, '#f4c27a');
-  g.fillStyle = sky; g.fillRect(0, 0, W, 300);
-  g.fillStyle = '#0a6e31'; g.fillRect(180, 110, 1240, 330); g.fillStyle = '#085227'; g.fillRect(180, 110, 1240, 30);
-  for (let x = 200; x < 1400; x += 60) { g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(x, 140, 30, 300); }
-  g.fillStyle = '#ffe14d'; g.fillRect(180, 436, 1240, 8);
+  const xl = -ox / sc - 2, xr = (cw - ox) / sc + 2, yb = (ch - oy) / sc + 2, yt = -oy / sc - 2;   // the whole screen, in title units
+  const sky = g.createLinearGradient(0, 0, 0, 330); sky.addColorStop(0, '#24386b'); sky.addColorStop(0.55, '#e3854f'); sky.addColorStop(1, '#f6c47c');
+  g.fillStyle = sky; g.fillRect(xl, yt, xr - xl, 330 - yt);
+  // a tree line on the horizon and grass either side of the store
+  for (let x = Math.floor(xl / 46) * 46; x < xr; x += 46) {
+    const hgt = 26 + ((x * 7919) % 23 + 23) % 23;
+    g.fillStyle = '#1d3b2a'; g.beginPath(); g.ellipse(x, 312 - hgt / 2, 30, hgt, 0, 0, 7); g.fill();
+  }
+  const grass = g.createLinearGradient(0, 300, 0, 446); grass.addColorStop(0, '#3f6b3a'); grass.addColorStop(1, '#2f5530');
+  g.fillStyle = grass; g.fillRect(xl, 304, xr - xl, 142);
+  for (const px of [120, 1480]) { g.fillStyle = '#55595e'; g.fillRect(px - 3, 250, 6, 196); g.fillStyle = '#2a2d31'; g.fillRect(px - 26, 246, 52, 8); g.fillStyle = '#fff3b0'; g.fillRect(px - 22, 254, 44, 4); }   // lot lights
+  // the store front, symmetric about x=800: window window door window | window door window window
+  g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(186, 116, 1240, 330);
+  g.fillStyle = '#0b6e32'; g.fillRect(180, 110, 1240, 334);
+  g.fillStyle = '#075226'; g.fillRect(180, 110, 1240, 26);
+  for (let x = 196; x < 1410; x += 48) { g.fillStyle = 'rgba(255,255,255,0.045)'; g.fillRect(x, 136, 22, 168); }
   logo(800, 205, 2.2);
-  text('THE HOME IMPROVEMENT STORE FULL OF BUCKOS', 800, 290, 24, '#fff', 'center', '900', '#06331a');
-  for (const dx of [470, 1010]) { g.fillStyle = '#9fd3ea'; g.fillRect(dx, 330, 120, 110); g.strokeStyle = '#d8e8f0'; g.lineWidth = 5; g.strokeRect(dx, 330, 120, 110); g.beginPath(); g.moveTo(dx + 60, 330); g.lineTo(dx + 60, 440); g.stroke(); }
-  for (let x = 230; x < 1380; x += 150) if (x < 430 || (x > 610 && x < 960) || x > 1140) { g.fillStyle = '#7fb8d1'; g.fillRect(x, 340, 100, 70); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + 10, 340, 14, 70); }
-  g.fillStyle = '#3c3f43'; g.fillRect(0, 444, W, 456);
-  g.fillStyle = '#9a9d9f'; g.fillRect(0, 444, W, 26);
-  g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 4;
-  for (let x = 40; x < W; x += 110) { g.beginPath(); g.moveTo(x, 650); g.lineTo(x, 740); g.moveTo(x, 800); g.lineTo(x, 900); g.stroke(); }
-  [[95, 660, '#8a1a1a'], [425, 664, '#1f3f6f'], [645, 815, '#e8e8e8'], [1085, 660, '#2d5a27'], [1305, 812, '#6a6a6a']].forEach(([x, y, c]) => {
-    g.fillStyle = 'rgba(0,0,0,0.3)'; rr(x + 4, y + 6, 74, 74, 8); g.fill(); g.fillStyle = c; rr(x, y, 74, 76, 10); g.fill();
-    g.fillStyle = '#1d2a35'; g.fillRect(x + 10, y + 10, 54, 18); g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x + 6, y + 34, 62, 36);
-  });
+  text('THE HOME IMPROVEMENT STORE FULL OF BUCKOS', 800, 280, 24, '#fff', 'center', '900', '#06331a');
+  const win = x => {
+    g.fillStyle = '#063a1b'; g.fillRect(x - 4, 336, 118, 98);
+    const gl = g.createLinearGradient(0, 340, 0, 430); gl.addColorStop(0, '#a9daee'); gl.addColorStop(1, '#5f9fbc');
+    g.fillStyle = gl; g.fillRect(x, 340, 110, 90);
+    g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.moveTo(x + 14, 340); g.lineTo(x + 34, 340); g.lineTo(x + 18, 430); g.lineTo(x, 430); g.lineTo(x, 404); g.fill();
+    g.fillStyle = '#063a1b'; g.fillRect(x + 53, 340, 4, 90);
+  };
+  const door = x => {
+    g.fillStyle = '#075226'; g.fillRect(x - 14, 304, 148, 16);                       // awning
+    for (let k = 0; k < 7; k++) { g.fillStyle = k % 2 ? '#ffe14d' : '#0b6e32'; g.fillRect(x - 14 + k * 148 / 7, 318, 148 / 7, 10); }
+    g.fillStyle = '#d8e8f0'; g.fillRect(x - 5, 330, 130, 114);
+    const gl = g.createLinearGradient(0, 334, 0, 444); gl.addColorStop(0, '#b6e2f2'); gl.addColorStop(1, '#6aaac6');
+    g.fillStyle = gl; g.fillRect(x, 334, 58, 110); g.fillRect(x + 62, 334, 58, 110);
+    g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + 8, 334, 10, 110); g.fillRect(x + 70, 334, 10, 110);
+    g.fillStyle = '#9aa4aa'; g.fillRect(x + 50, 384, 4, 18); g.fillRect(x + 66, 384, 4, 18);
+  };
+  [230, 370, 680, 810, 1120, 1260].forEach(win); [520, 960].forEach(door);
+  text('IN', 580, 311, 12, '#ffe14d'); text('OUT', 1020, 311, 12, '#ffe14d');
+  g.fillStyle = '#ffe14d'; g.fillRect(180, 440, 1240, 6);
+  // sidewalk + curb
+  g.fillStyle = '#a9acad'; g.fillRect(xl, 446, xr - xl, 44);
+  g.fillStyle = 'rgba(0,0,0,0.08)'; for (let x = Math.floor(xl / 80) * 80; x < xr; x += 80) g.fillRect(x, 446, 2, 44);
+  g.fillStyle = '#d8d9d6'; g.fillRect(xl, 488, xr - xl, 6);
+  // asphalt, stall rows on both sides, and a clear drive lane down the middle for the menu
+  const lot = g.createLinearGradient(0, 494, 0, yb); lot.addColorStop(0, '#40444a'); lot.addColorStop(1, '#2f3237');
+  g.fillStyle = lot; g.fillRect(xl, 494, xr - xl, yb - 494);
+  g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 4;
+  const rows = [[520, 650], [710, 840]];
+  for (let c = -12; c <= 28; c++) {
+    const x = 40 + c * 100; if ((x > 340 && x < 1260) || x < xl - 100 || x > xr + 100) continue;
+    for (const [a, b] of rows) { g.beginPath(); g.moveTo(x, a); g.lineTo(x, b); g.stroke(); }
+  }
+  for (const [, b] of rows) for (const [x0, x1] of [[xl, 340], [1260, xr]]) { if (x1 > x0) { g.beginPath(); g.moveTo(x0, b); g.lineTo(x1, b); g.stroke(); } }
+  g.strokeStyle = '#e8c21e'; g.lineWidth = 4; g.setLineDash([26, 20]);
+  g.beginPath(); g.moveTo(800, 500); g.lineTo(800, yb); g.stroke(); g.setLineDash([]);
+  for (const [col, row, colr, kind] of LOT_CARS) {
+    const cx = 90 + col * 100, cy = row ? 775 : 585;
+    if (cx > xl - 60 && cx < xr + 60) drawCar(cx, cy, colr, kind);
+  }
+  // Buckos heading in along the sidewalk, wrapping round the screen
+  const span = xr - xl + 300;
   for (let i = 0; i < 6; i++) {
-    const x = ((t * 80 + i * 160) % 1900) - 150, e = { x, y: 470, walk: t * 9 + i, dir: 1, vx: 80, vy: 0, seed: i };
+    const x = xl - 150 + ((t * 80 + i * span / 6) % span), e = { x, y: 466, walk: t * 9 + i, dir: 1, vx: 80, vy: 0, seed: i };
     drawPerson(e, TITLE_LOOKS[i], { carry: i % 2 ? 'bag' : null });
   }
   // the whole fleet takes turns flying over
-  const cyc = t % 6, plane = TITLE_PLANES[Math.abs(Math.floor(t / 6)) % TITLE_PLANES.length], ax = -600 + cyc * 500, ay = 650 - ax * 0.12, s = plane.startsWith('B') ? 0.6 : 0.7;
-  g.save(); g.globalAlpha = 0.25; g.fillStyle = '#000'; g.translate(60, 140); drawJet(plane, ax, ay, -0.12, s, true); g.restore(); drawJet(plane, ax, ay, -0.12, s);
-  g.fillStyle = 'rgba(0,0,0,0.5)'; rr(330, 530, 940, 140, 20); g.fill();
-  text('Get the Buckos OUT. Correctly.', 800, 568, 34, '#ffe14d', 'center', '900', '#06331a');
-  text('Let them shop · ring them up · right door · catch the sneaky ones.', 800, 610, 17, '#fff', 'center', '700', null, FB);
-  text('Mess up and the military shows up - and it only gets bigger, all the way to the B-52.', 800, 640, 16, '#ffb0a0', 'center', '700', null, FB);
-  button(620, 690, 360, 84, 'CLOCK IN', newGame, { size: 36 });
-  text(`Total score: ${money(G.total)}    ·    Best: ${money(G.best)}`, 800, 805, 21, '#fff', 'center', '800', 'rgba(0,0,0,0.6)', FB);
-  text(touchy() ? '' : 'Move: WASD / arrows · LET GO: SPACE · Whistle: Q · Pause: P · Sound: M', 800, 850, 15, '#ddd', 'center', '700', 'rgba(0,0,0,0.6)', FB);
-  text('v' + (APP && APP.version ? APP.version() : GR_VERSION), 1585, 885, 13, 'rgba(255,255,255,0.7)', 'right', '700', null, FB);
-  g.fillStyle = 'rgba(0,0,0,0.4)'; rr(1490, 20, 92, 44, 10); g.fill(); text(S.on ? 'SOUND ON' : 'SOUND OFF', 1536, 42, 12, '#fff', 'center', '800', null, FB);
-  hit(1490, 20, 92, 44, toggleSound);
+  const cyc = t % 6, plane = TITLE_PLANES[Math.abs(Math.floor(t / 6)) % TITLE_PLANES.length];
+  const ax = xl - 500 + cyc * (xr - xl + 1000) / 6, ay = 620 - (ax - 800) * 0.12, s = plane.startsWith('B') ? 0.6 : 0.75;
+  g.save(); g.globalAlpha = 0.16; g.fillStyle = '#000'; g.translate(40, 90); drawJet(plane, ax, ay, -0.12, s, true); g.restore();
+  drawJet(plane, ax, ay, -0.12, s);
+  // the menu column: centred on x=800, over the drive lane
+  g.fillStyle = 'rgba(8,22,14,0.85)'; rr(420, 522, 760, 150, 18); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 3; g.stroke();
+  text('Get the Buckos OUT. Correctly.', 800, 562, 34, '#ffe14d', 'center', '900', '#06331a');
+  text('Let them shop · ring them up · right door · catch the sneaky ones.', 800, 604, 17, '#fff', 'center', '700', null, FB);
+  text('Mess up and the military shows up - all the way to the B-52.', 800, 634, 16, '#ffb0a0', 'center', '700', null, FB);
+  button(620, 690, 360, 80, 'CLOCK IN', newGame, { size: 36 });
+  g.fillStyle = 'rgba(8,22,14,0.85)'; rr(540, 790, 520, 40, 20); g.fill();
+  text(`Total score  ${money(G.total)}     ·     Best  ${money(G.best)}`, 800, 811, 18, '#fff', 'center', '800', null, FB);
+  if (!touchy()) {
+    g.fillStyle = 'rgba(8,22,14,0.75)'; rr(470, 842, 660, 32, 16); g.fill();
+    text('Move WASD / arrows  ·  Let go SPACE  ·  Whistle Q  ·  Pause P  ·  Sound M', 800, 859, 14, '#d8e0da', 'center', '700', null, FB);
+  }
+  const right = Math.min(xr, 1600);
+  text('v' + (APP && APP.version ? APP.version() : GR_VERSION), right - 16, 885, 13, 'rgba(255,255,255,0.7)', 'right', '700', null, FB);
+  g.fillStyle = 'rgba(8,22,14,0.75)'; rr(right - 112, 18, 96, 40, 10); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.3)'; g.lineWidth = 2; g.stroke();
+  text(S.on ? 'SOUND ON' : 'SOUND OFF', right - 64, 39, 12, '#fff', 'center', '800', null, FB);
+  hit(right - 112, 18, 96, 40, toggleSound);
   drawUpdateBanner(800, 40);
 }
 function drawUpdateBanner(x, y) {
