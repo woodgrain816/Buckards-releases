@@ -1,10 +1,10 @@
 {
-  "version": "2.9.2",
+  "version": "2.9.3",
   "minNative": 1,
-  "notes": "Tablets and phones always play SIDEWAYS now: if the screen comes in tall, the game turns itself so you hold it sideways.",
-  "page": "buckards-2.9.2.html",
+  "notes": "New Stick sensitivity setting (Settings > Controls): a small push of the joystick can now give full speed. Default is more sensitive than before.",
+  "page": "buckards-2.9.3.html",
   "apk": "Buckards.apk",
-  "sha256": "e88392900bd0388514d80393e5e41410e63a120c7fecb61d5e4693f27c3fc673",
-  "size": 271391,
-  "date": "2026-10-25T20:08:04.987Z"
+  "sha256": "23a5ddbb445683dad33ab5f590afd6af9714dc48560daa60d539432427c47c83",
+  "size": 271802,
+  "date": "2026-10-25T20:10:25.590Z"
 }

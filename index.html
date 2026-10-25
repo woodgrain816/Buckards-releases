@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.9.2";
+const GR_VERSION = "2.9.3";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Tablets and phones always play SIDEWAYS now: if the screen comes in tall, the game turns itself so you hold it sideways.";
+const GR_NOTES = "New Stick sensitivity setting (Settings > Controls): a small push of the joystick can now give full speed. Default is more sensitive than before.";
 const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
@@ -986,6 +986,8 @@ function bigBtns() {
   const r = clamp(Math.min(cw, ch) * 0.11, 34, 58), X = x => touchy() && SET.joySide !== 'left' ? cw - x : x;   // touch: buttons on the side the stick isn't
   return { r, dash: { x: X(cw - r * 3.4 - 14), y: ch - r * 0.8 - 14 }, go: { x: X(cw - r - 14), y: ch - r - 14 }, wh: { x: X(cw - r - 14), y: ch - r * 3.2 - 14 } };
 }
+const STICK = [1, 0.6, 0.4, 0.25];                 // how far (of the ring) you push for full speed: LOW, MED, HIGH, MAX
+const stickReach = () => joyR() * STICK[SET.stick ?? 1];
 function joyR() { return clamp(Math.min(cw, ch) * 0.13, 46, 70) * [0.8, 1, 1.25][SET.joySize]; }
 
 addEventListener('keydown', e => {
@@ -1075,8 +1077,8 @@ function moveInput() {
   if (keys.KeyA || keys.ArrowLeft) mx--; if (keys.KeyD || keys.ArrowRight) mx++;
   if (keys.KeyW || keys.ArrowUp) my--; if (keys.KeyS || keys.ArrowDown) my++;
   if (joy.id !== null) {
-    const fixed = touchy() || joy.touch, dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), max = fixed ? joyR() : 64;
-    if (m > 6) { const k = Math.min(m, max) / max; mx = dx / m * k; my = dy / m * k; }
+    const fixed = touchy() || joy.touch, dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), max = fixed ? stickReach() : 64;
+    if (m > Math.min(6, max * 0.15)) { const k = Math.min(m, max) / max; mx = dx / m * k; my = dy / m * k; }
     if (!fixed && m > max) { joy.ox = joy.x - dx / m * max; joy.oy = joy.y - dy / m * max; }   // mouse: base drags along
   }
   const m = Math.hypot(mx, my); if (m > 1) { mx /= m; my /= m; }
@@ -2523,7 +2525,7 @@ function drawControls() {
     const R = joyR(), down = joy.id !== null, a = down ? 1 : clamp(1 - (performance.now() - (joy.upAt || -1e9)) / 350, 0, 1);
     if (a > 0) {
       let kx = 0, ky = 0;
-      if (down) { const dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), k = m > R ? R / m : 1; kx = dx * k; ky = dy * k; }
+      if (down) { const dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), k = m ? Math.min(m / stickReach(), 1) * R / m : 0; kx = dx * k; ky = dy * k; }   // knob hits the rim at full speed
       g.globalAlpha = a; g.fillStyle = 'rgba(255,255,255,0.14)'; g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 3;
       g.beginPath(); g.arc(joy.ox, joy.oy, R, 0, 7); g.fill(); g.stroke();
       g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.arc(joy.ox + kx, joy.oy + ky, R * 0.42, 0, 7); g.fill(); g.globalAlpha = 1;
@@ -3113,6 +3115,7 @@ function drawSettings(close) {
   seg(L, 444 + row, 'Joystick size', ['SMALL', 'MED', 'BIG'], SET.joySize, i => set('joySize', i));
   seg(L, 444 + row * 2, 'Vibration', ['ON', 'OFF'], SET.vib ? 0 : 1, i => set('vib', !i));
   seg(L, 444 + row * 3, 'Tips & hints', ['ON', 'OFF'], SET.hints ? 0 : 1, i => set('hints', !i));
+  seg(L, 444 + row * 4, 'Stick sensitivity', ['LOW', 'MED', 'HIGH', 'MAX'], SET.stick ?? 1, i => set('stick', i));
   head('DISPLAY', Rx, 196);
   seg(Rx, 218, 'Graphics', ['AUTO', 'HIGH', 'LOW'], ['auto', 'high', 'low'].indexOf(gfxMode), i => { while (['auto', 'high', 'low'][i] !== gfxMode) cycleGfx(); });
   seg(Rx, 218 + row, 'Screen shake', ['ON', 'OFF'], G.calm ? 1 : 0, i => { G.calm = !!i; store.set('calm', G.calm); });
@@ -3133,7 +3136,7 @@ function drawSettings(close) {
   }, { size: armed ? 14 : 15, bg: '#8a1a1a', bg2: '#c0392b' });
   text('Save code = all your progress. Load it on another website or device.', Rx + 200, 692, 12, '#777', 'center', '700', null, FB);
   text('Buckards v' + (APP && APP.version ? APP.version() : GR_VERSION) + '  ·  minimap: tap its - to tuck it away', Rx + 200, 712, 12, '#777', 'center', '700', null, FB);
-  if (touchy()) text('Phone tip: drag anywhere to walk, double-tap to dash.', L + 200, 650, 13, '#555', 'center', '700', null, FB);
+  if (touchy()) text('Phone tip: drag anywhere to walk, double-tap to dash.', L + 200, 700, 13, '#555', 'center', '700', null, FB);
   button(650, 760, 300, 56, 'DONE', close, { size: 22 });
 }
 function exportSave() {
