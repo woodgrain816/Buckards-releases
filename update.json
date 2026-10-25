@@ -1,10 +1,10 @@
 {
-  "version": "2.7.0",
+  "version": "2.7.1",
   "minNative": 1,
-  "notes": "Chromebook version: install Buckards from the game page (INSTALL APP) and it runs fully offline. There is also a Buckards-Offline.html file that needs no internet at all. Chromebook touchscreens get the phone joystick.",
-  "page": "buckards-2.7.0.html",
+  "notes": "Buckards now also lives at its own address on Netlify (no GitHub needed), installable and playable offline there too.",
+  "page": "buckards-2.7.1.html",
   "apk": "Buckards.apk",
-  "sha256": "952c69bdad540c04e5d16c6c8c76396d8d4c5127d895758b74d2f750d4729f79",
-  "size": 231992,
-  "date": "2026-10-25T05:01:50.737Z"
+  "sha256": "aaf7aa06f399ef6ab132a624e64ae29b996688938cc99416ba406b3e9522927c",
+  "size": 231905,
+  "date": "2026-10-25T05:13:40.412Z"
 }
