@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.5.1";
+const GR_VERSION = "2.8.0";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Phone controls: the joystick now stays put in the bottom-right corner, and the LET GO / DASH / WHISTLE buttons moved to the bottom left.";
+const GR_NOTES = "Perks and upgrades now have TIERS: finish one and a bigger, pricier tier unlocks (Running Shoes to Track Spikes to Rocket Sneakers to Jet Boots...). Speed tips: the faster a Bucko gets in and out, the bigger the tip - under 25 seconds is a LIGHTNING TIP. New daily mission for lightning tips. Built for the long haul: 30 ranks, 20 new long-term badges, 70 more things in the Company Store and a new LOT tab that decorates the outside of your store.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -45,7 +45,7 @@ let g = cv.getContext('2d');
 /* graphics: 'auto' (drops to low by itself if frames run slow), 'high' or 'low' */
 let gfxMode = (() => { try { return JSON.parse(localStorage.getItem('grenards_gfx')) || 'auto'; } catch (e) { return 'auto'; } })(), autoLow = false;
 const lowFX = () => gfxMode === 'low' || (gfxMode === 'auto' && autoLow);
-let cw, ch, dpr, sc, ox, oy, hs, hx, hudH, hudCut = 0, scFit, ov, vignette = null;
+let cw, ch, dpr, sc, ox, oy, hs, hx, hudH, hudCut = 0, scFit, ov, vignette = null, compactHUD = false;
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, lowFX() ? 1 : 1.75);
   cw = innerWidth; ch = innerHeight;
@@ -54,6 +54,8 @@ function resize() {
   sc = Math.min(cw / W, ch / H); ox = (cw - W * sc) / 2; oy = (ch - H * sc) / 2;   // whole 1600x900 (title)
   hudCut = cw < 1150 ? 216 : 0;                                                   // narrow screens: no logo, bigger HUD
   hs = Math.min(cw / (W - hudCut), 1); hx = (cw - (W - hudCut) * hs) / 2 - hudCut * hs; hudH = 60 * hs;
+  compactHUD = cw < 1150 && (MOBILE || matchMedia('(pointer:coarse)').matches);   // phones: five big readouts instead of nine small ones
+  if (compactHUD) { hs = Math.min(cw / 1000, 1); hx = (cw - 1000 * hs) / 2; hudH = 60 * hs; }
   scFit = Math.min(cw / W, (ch - hudH) / (H - 60));                                // whole floor
   ov = Math.min(cw / 1000, ch / 790, 1.25);                                        // menus: content spans y 100..880
   vignette = null;
@@ -73,7 +75,10 @@ const store = {
   set(k, v) { try { localStorage.setItem('grenards_' + k, JSON.stringify(v)); } catch (e) {} }
 };
 const touchy = () => MOBILE || matchMedia('(pointer:coarse)').matches;
-const buzz = ms => { try { if (touchy() && navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
+const SET = Object.assign({ zoom: 1, vol: 2, mvol: 2, map: (MOBILE || matchMedia('(pointer:coarse)').matches) ? 'hidden' : 'show', mapSize: 1, names: 'near', fps: false, joySide: 'right', joySize: 1, vib: true, hints: true }, store.get('settings', {}));
+const saveSet = () => store.set('settings', SET);
+const VOLS = [0.35, 0.7, 1];
+const buzz = ms => { try { if (SET.vib && touchy() && navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
 
 /* On a phone the whole floor would make a Bucko ~7px across, so the camera
    follows you zoomed in; it pulls back to the whole store for an airstrike. */
@@ -81,7 +86,7 @@ const MIN_SCALE = 0.8;
 const cam = { x: W / 2, y: H / 2, s: 0, tx: 0, ty: 0 };
 const isAir = () => G.state === 'airstrike' || G.state === 'gameover' || G.state === 'aftermath';
 function updateCam(dt) {
-  const want = isAir() ? scFit : Math.max(scFit, MIN_SCALE);
+  const want = isAir() ? scFit : Math.max(scFit, touchy() ? [0.85, 1.05, 1.3][SET.zoom] : MIN_SCALE);
   cam.s = cam.s ? cam.s + (want - cam.s) * Math.min(1, dt * 3) : want;
   const vw = cw / cam.s, vh = (ch - hudH) / cam.s, p = G.player;
   const wx = vw >= W ? W / 2 : clamp(p.x, vw / 2, W - vw / 2), wy = vh >= H - 60 ? 60 + (H - 60) / 2 : clamp(p.y, 60 + vh / 2, H - vh / 2);
@@ -121,7 +126,7 @@ const inArea = (o, a) => o.x > a.x && o.x < a.x + a.w && o.y > a.y && o.y < a.y 
 
 const ITEMS = [
   ['gallon of paint', 34.98, 'PAINT', 'can'], ['paint roller kit', 12.97, 'PAINT', 'box'],
-  ['toilet flange', 7.48, 'PLUMBING', 'box'], ['10ft PVC pipe', 6.12, 'PLUMBING', 'plank'], ['shop sink', 89.0, 'PLUMBING', 'box'],
+  ['toilet flange', 7.48, 'PLUMBING', 'box'], ['10ft PVC pipe', 6.12, 'PLUMBING', 'pipe'], ['shop sink', 89.0, 'PLUMBING', 'box'],
   ['extension cord', 15.99, 'ELECTRICAL', 'box'], ['ceiling fan', 119.0, 'ELECTRICAL', 'box'],
   ['shop vac', 89.99, 'TOOLS', 'box'], ['cordless drill', 129.0, 'TOOLS', 'box'],
   ['box of screws', 9.97, 'HARDWARE', 'box'], ['novelty mailbox', 39.99, 'HARDWARE', 'box'],
@@ -189,7 +194,7 @@ const S = {
     if (!this.on) return null;
     if (!this.ac) {
       try { this.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
-      this.master = this.ac.createGain(); this.master.gain.value = 0.9; this.master.connect(this.ac.destination);
+      this.master = this.ac.createGain(); this.master.gain.value = 0.9 * VOLS[SET.vol]; this.master.connect(this.ac.destination);
     }
     if (this.ac.state === 'suspended') this.ac.resume();
     return this.ac;
@@ -248,7 +253,7 @@ const M = {
     if (this.timer || !S.on || !this.on) return;
     const a = S.ensure(); if (!a) return;
     this.gain = a.createGain(); this.gain.gain.value = 0.0001; this.gain.connect(S.master);
-    this.gain.gain.exponentialRampToValueAtTime(0.16, a.currentTime + 1.5);
+    this.gain.gain.exponentialRampToValueAtTime(0.16 * VOLS[SET.mvol], a.currentTime + 1.5);
     this.next = a.currentTime + 0.1; this.step = 0;
     this.timer = setInterval(() => this.tick(), 90);
   },
@@ -363,9 +368,9 @@ let nameBag = [];
 function newBucko(type, x, y, entering) {
   if (!nameBag.length) nameBag = NAMES.slice().sort(() => Math.random() - 0.5);
   const it = type === 'contractor' ? ['load of 2x4s', 0, 'LUMBER', 'plank'] : pick(ITEMS);
-  const golden = type !== 'contractor' && Math.random() < 0.05 + 0.02 * upL('golden'), look = makeLook(type);
+  const golden = type !== 'contractor' && Math.random() < (0.05 + 0.02 * upL('golden')) * (G.boost === 'lucky' ? 3 : 1), look = makeLook(type);
   if (golden) Object.assign(look, { shirt: 'flannel', shirtCol: '#c9970f', hat: 'blaze', hatCol: '#e8b923' });
-  return { golden, type, x, y, surname: pick(SURNAMES), voice: rnd(170, 330), name: nameBag.pop(), item: it[0], price: it[1], area: it[2], kind: it[3], look,
+  return { inT: G.timer, golden, type, x, y, surname: pick(SURNAMES), voice: rnd(170, 330), name: nameBag.pop(), item: it[0], price: it[1], area: it[2], kind: it[3], look,
     state: entering ? 'entering' : 'shop', target: entering ? { x: 190, y: 640 } : null, pause: rnd(0, 1.5),
     stuck: 0, cool: 0, has: false, hunt: 0, need: rnd(1.6, 3.4), scanned: false, scanT: 0, walk: rnd(0, 6), out: 0,
     dir: 1, vx: 0, vy: 0, seed: rnd(0, 10), say: null, chat: rnd(4, 12), lure: 0, nag: 0, patience: 0, patMax: 1,
@@ -374,13 +379,24 @@ function newBucko(type, x, y, entering) {
 
 /* ------------------------------------------------------------ game state */
 const PERKS = [
-  { id: 'shoes', name: 'Running Shoes', desc: 'Walk 12% faster per pair', max: 3, price: l => [150, 300, 550][l] },
-  { id: 'lanyard', name: 'Longer Lanyard', desc: 'Lead one more Bucko at a time', max: 3, price: l => [200, 400, 700][l] },
-  { id: 'scanner', name: 'Coupon Scanner 3000', desc: 'Coupon Buckos scan twice as fast', max: 1, price: () => 250 },
-  { id: 'whistle', name: 'Manager Whistle', desc: 'Call nearby Buckos over (Q / button)', max: 1, price: () => 350 },
-  { id: 'map', name: 'Store Map App', desc: 'Always shows which aisle each Bucko wants', max: 1, price: () => 120 },
-  { id: 'bribe', name: 'Bribe a Senator', desc: 'Removes one Government strike', max: 99, price: () => 300 + 200 * G.perks.bribe }
+  { id: 'shoes', per: 3, tiers: ['Running Shoes', 'Track Spikes', 'Rocket Sneakers', 'Jet Boots'],
+    descs: ['Walk 10% faster per pair', 'Walk 6% faster per pair', 'Walk 4% faster per pair', 'Walk 3% faster. You are a blur.'],
+    price: n => Math.round(180 * Math.pow(1.6, n) / 10) * 10 },
+  { id: 'lanyard', per: 3, tiers: ['Longer Lanyard', 'Bungee Lanyard', 'Industrial Rope'],
+    descs: ['Lead one more Bucko at a time', 'Lead one more Bucko. It stretches!', 'Lead one more Bucko. Conga line legend.'],
+    price: n => Math.round(220 * Math.pow(1.7, n) / 10) * 10 },
+  { id: 'scanner', per: 1, tiers: ['Coupon Scanner 3000', 'Coupon Scanner 5000', 'Scanner 9000 Turbo'],
+    descs: ['Coupon Buckos scan twice as fast', 'Coupon scans 3x as fast', 'Coupon scans almost instant'], price: n => [250, 900, 2600][n] },
+  { id: 'whistle', per: 1, tiers: ['Manager Whistle', 'Air Horn', 'Megaphone'],
+    descs: ['Call nearby Buckos over (Q / button)', 'Louder, farther, recharges faster', 'The whole aisle hears you. Fast recharge.'], price: n => [350, 1200, 3200][n] },
+  { id: 'map', per: 1, tiers: ['Store Map App'], descs: ['Always shows which aisle each Bucko wants'], price: () => 120 },
+  { id: 'bribe', per: 99, tiers: ['Bribe a Senator'], descs: ['Removes one Government strike'], price: () => 300 + 200 * G.perks.bribe }
 ];
+PERKS.forEach(p => { p.max = p.per === 99 ? 99 : p.per * p.tiers.length; });
+const perkTier = (p, lvl) => Math.min(Math.floor(lvl / p.per), p.tiers.length - 1);
+const shoeBoost = () => { let k = 0; for (let i = 0; i < G.perks.shoes; i++) k += [0.10, 0.06, 0.04, 0.03][Math.floor(i / 3)]; return k; };
+const whistleCDMax = () => [16, 16, 12, 9][G.perks.whistle];
+const whistleRange = () => [300, 300, 380, 480][G.perks.whistle];
 const DAY_TEXT = {
   1: ['Every Bucko comes in for ONE thing.', 'Let him find it, ring him up, then out the EXIT.'],
   2: ['NEW: Coupon Buckos (reading glasses).', 'Keep them IN the lane until the scan ring fills.'],
@@ -403,8 +419,9 @@ const G = {
   player: { x: 800, y: 620, vx: 0, vy: 0, walk: 0, dir: 1, chain: [], trail: [], seed: 0 }
 };
 window.G = G;   // poke at it from the console while testing
+const cleanNeed = () => 5 - upL('behave');
 const maxLine = () => 3 + G.perks.lanyard + upL('line');
-const scanNeed = () => 1.6 * (G.perks.scanner ? 0.5 : 1) * (1 - 0.15 * upL('scan'));
+const scanNeed = () => 1.6 * [1, 0.5, 0.35, 0.2][G.perks.scanner] * (1 - 0.15 * upL('scan'));
 const threat = () => LADDER[Math.min(G.level, LADDER.length - 1)];
 
 function addScore(v) {              // earnings and fines move the total score; perks don't
@@ -412,11 +429,11 @@ function addScore(v) {              // earnings and fines move the total score; 
   if (G.total > G.best) { G.best = G.total; G.newBest = true; store.set('best', G.best); }
   store.set('total', G.total);
 }
-function earn(v) { G.cash += v; G.dayCash += v; addScore(v); if (G.cash >= 5000) badge('rich'); }
+function earn(v) { if (v > 0) v = Math.round(v * (G.boost === 'cash2' ? 2 : 1) * (1 + shopaholic())); G.cash += v; G.dayCash += v; addScore(v); if (G.cash >= 5000) badge('rich'); if (G.cash >= 25000) badge('rich25'); }
 function fine(v) { G.cash = Math.max(0, G.cash - v); addScore(-v); }
 
 function dayCfg(d) {
-  const total = Math.min(4 + d * 2, 30), time = Math.min(110 + d * 10, 190);
+  const total = Math.min(4 + d * 2, 30), time = Math.min(110 + d * 10, 190) + 5 * upL('overtime') + (G.boost === 'overtime' ? 30 : 0);
   const w = [['regular', 1]];
   if (d >= 2) w.push(['coupon', 0.35]); if (d >= 3) w.push(['contractor', 0.3]); if (d >= 4) w.push(['squirrely', 0.3]);
   return { total, time, w };
@@ -425,34 +442,41 @@ function rollType(w) { let s = w.reduce((a, b) => a + b[1], 0) * Math.random(); 
 
 function newGame() {
   Object.assign(G, { dayBB: 0, tickets: 0, clean: 0, coins: [], banner: null, showCash: 0, extra: 0, day: 1, strikes: 0, cash: 100 * upL('wallet'), removed: 0, newBest: false, streak: 0, bestStreak: 0, snap: null, level: 0, quest: null,
-    perks: { shoes: 0, lanyard: 0, scanner: 0, whistle: 0, map: 0, bribe: 0 } });
+    perks: { shoes: 0, lanyard: 0, scanner: upL('sscanner'), whistle: upL('swhistle'), map: upL('smap'), bribe: 0 } });
   startDay();
 }
 function startDay() {
+  G.boost = null; G.waived = false;                 // a boost you armed in the Company Store gets used up today
+  if (META.armed && (META.boosts[META.armed] || 0) > 0) {
+    G.boost = META.armed.split(':')[1]; META.boosts[META.armed]--;
+    if (!META.boosts[META.armed]) META.armed = null; saveShop();
+    if (G.boost === 'pardon') G.strikes = Math.max(0, G.strikes - 1);
+  }
   const c = dayCfg(G.day);
   if (decalCv) decalCv.getContext('2d').clearRect(0, 0, W, H);
   Object.assign(G, { spill: null, hotdogT: 0, raccoon: null, congaT: 6, dashT: 0, dashCD: 0, events: [],
     buckos: [], spawns: [], cops: [], pops: [], parts: [], decals: [], fires: [], booms: [], toast: null, as: null, pa: null, paT: rnd(14, 24),
     dayLen: c.time, timer: c.time, dayRemoved: 0, dayCash: 0, whistleCD: 0, slow: 0, snap: null, closed: -1, closeT: rnd(20, 35), trip: 0 });
   const p = G.player;
-  Object.assign(p, { x: 800, y: 630, vx: 0, vy: 0, chain: [], rag: null }); p.trail = [{ x: p.x, y: p.y }];   // rag: null = back on his feet
-  const types = []; for (let i = 0; i < c.total; i++) types.push(rollType(c.w));
+  Object.assign(p, { x: 800, y: 630, vx: 0, vy: 0, chain: [], rag: null }); p.trail = [{ x: p.x, y: p.y }];
+  G.pet = META.eq.pet ? { isPet: true, x: p.x - 34, y: p.y + 14, vx: 0, vy: 0, walk: 0, dir: 1, sayT: rnd(4, 9) } : null;   // rag: null = back on his feet
+  const types = []; for (let i = 0; i < c.total + (G.boost === 'bus' ? 4 : 0); i++) types.push(rollType(c.w));
   if (G.day >= 2 && !types.includes('coupon')) types[0] = 'coupon';          // show the new kid on his day
   if (G.day >= 3 && !types.includes('contractor')) types[1] = 'contractor';
   if (G.day >= 4 && !types.includes('squirrely')) types[2] = 'squirrely';
-  const now = Math.ceil(c.total * 0.5);
+  const now = Math.ceil(types.length * 0.5);
   types.forEach((t, i) => {
     if (i < now) {
       const b = newBucko(t, 0, 0, false), s = Math.random() < 0.5 ? freeSpot(AREAS[b.area]) : freeSpot();
       b.x = s.x; b.y = s.y; if (i < 2 && Math.random() < 0.6) gotIt(b, true);     // a couple are already done when the doors open
       G.buckos.push(b);
-    } else G.spawns.push({ at: c.time * (0.95 - 0.6 * (i - now + 1) / (c.total - now + 1)), type: t });
+    } else G.spawns.push({ at: c.time * (0.95 - 0.6 * (i - now + 1) / (types.length - now + 1)), type: t });
   });
   if (!G.quest) newQuest();
   { const kinds = ['spill', 'hotdog', 'bus', 'raccoon'].sort(() => Math.random() - 0.5);
     const n = G.day === 1 ? 1 : G.day < 4 ? 2 : 3;
     for (let i = 0; i < n; i++) G.events.push({ kind: G.day === 1 ? 'spill' : kinds[i], at: c.time * (0.75 - i * 0.22) - rnd(0, 8) }); }
-  if (G.day >= 5) badge('day5');
+  if (G.day >= 5) badge('day5'); if (G.day >= 10) badge('day10'); if (G.day >= 15) badge('day15'); if (G.day >= 20) badge('day20');
   G.state = 'intro';
 }
 
@@ -472,15 +496,19 @@ function questTick(kind, v) {
   const q = G.quest; if (!q || q.kind !== kind) return;
   q.have = kind === 'trip' || kind === 'streak' ? Math.max(q.have, v) : q.have + v;
   if (q.have >= q.need) {
-    earn(q.reward); S.fanfare(); buzz([30, 40, 30]); addXP(40); bb(3); mission('quest');
+    earn(q.reward * (G.boost === 'questx2' ? 2 : 1)); S.fanfare(); buzz([30, 40, 30]); addXP(40); bb(3); mission('quest');
     banner('QUEST COMPLETE', `${q.text}  ·  +${money(q.reward)}`, '#7dff7d'); spawnCoins(G.player.x, G.player.y, 10);
     confetti(G.player.x, G.player.y - 30, 40);
     newQuest();
   }
 }
 
-const RANKS = [[0, 'Bagger'], [150, 'Cart Pusher'], [400, 'Cashier'], [800, 'Team Lead'], [1500, 'Assistant Manager'],
-  [2600, 'Store Manager'], [4200, 'District Manager'], [6500, 'Regional VP'], [10000, 'Bucko Legend']];
+const RANKS = [[0, 'Bagger'], [150, 'Cart Pusher'], [400, 'Cashier'], [800, 'Shelf Stocker'], [1300, 'Paint Mixer'],
+  [2000, 'Team Lead'], [3000, 'Department Lead'], [4300, 'Assistant Manager'], [6000, 'Store Manager'], [8200, 'Senior Store Manager'],
+  [11000, 'District Manager'], [14500, 'Senior District Manager'], [19000, 'Regional Manager'], [24500, 'Regional Director'], [31000, 'Area VP'],
+  [39000, 'Senior VP'], [48500, 'Executive VP'], [60000, 'Chief Bucko Officer'], [74000, 'Board Member'], [90000, 'Chairman of the Board'],
+  [110000, 'Bucko Baron'], [135000, 'Bucko Duke'], [165000, 'Bucko King'], [200000, 'Bucko Emperor'], [245000, 'Bucko Titan'],
+  [300000, 'Bucko Demigod'], [370000, 'Bucko Deity'], [450000, 'Living Legend'], [550000, 'Bucko Immortal'], [700000, 'Bucko Legend']];
 const BADGES = [
   ['first', 'Clocked In', 'Get your first Bucko out'], ['out50', 'Bucko Wrangler', 'Get 50 Buckos out (all time)'],
   ['out250', 'Bucko Whisperer', 'Get 250 Buckos out (all time)'], ['catch5', 'Mall Cop', 'Catch 5 runners yourself'],
@@ -489,16 +517,27 @@ const BADGES = [
   ['bombed', 'Bucko Bombed', 'Live through your first Bucko Bombers'], ['b52', 'Big Ugly Fat Fellow', 'Get a visit from the B-52'],
   ['nuke', 'Fallout', 'Get nuked'], ['rich', 'High Roller', 'Have $5,000 in your wallet'],
   ['geared', 'Fully Equipped', 'Own the whistle, map app and scanner'], ['legend', 'Bucko Legend', 'Reach the top rank'],
-  ['dex', 'Gotta Ope \'Em All', 'Fill the whole Buckodex']];
-const CAREER = { dex: store.get('dex', []), xp: store.get('xp', 0), out: store.get('cOut', 0), caught: store.get('cCaught', 0), badges: store.get('badges', []) };
+  ['dex', 'Gotta Ope \'Em All', 'Fill the whole Buckodex'],
+  ['out1000', 'Bucko Professional', 'Get 1,000 Buckos out (all time)'], ['out2500', 'Bucko Veteran', 'Get 2,500 Buckos out (all time)'],
+  ['out5000', 'Bucko Grandmaster', 'Get 5,000 Buckos out (all time)'], ['out10k', 'Ten Thousand Opes', 'Get 10,000 Buckos out (all time)'],
+  ['catch25', 'Store Detective', 'Catch 25 runners yourself'], ['catch100', 'Bucko Bounty Hunter', 'Catch 100 runners yourself'],
+  ['day10', 'Double Digits', 'Make it to day 10 in one run'], ['day15', 'Iron Employee', 'Make it to day 15 in one run'],
+  ['day20', 'Never Clocks Out', 'Make it to day 20 in one run'], ['streak20', 'Unstoppable', 'Reach a 20x streak'],
+  ['streak30', 'Are You Even Human', 'Reach a 30x streak'], ['rich25', 'Bucko Millionaire (Almost)', 'Have $25,000 in your wallet'],
+  ['shop25', 'Shopaholic', 'Own 25 things from the Company Store'], ['shop75', 'Mega Shopper', 'Own 75 things from the Company Store'],
+  ['shop150', 'Bought the Whole Store', 'Own 150 things from the Company Store'], ['tier3', 'Corporate Ladder', 'Reach tier III on any upgrade'],
+  ['rank15', 'Executive Material', 'Reach the rank of Area VP'], ['light25', 'Speed Demon', 'Get 25 lightning tips (all time)'],
+  ['tipjar', 'Tip Jar Overflowing', 'Earn $1,000 in tips in one day'], ['lot', 'Curb Appeal', 'Own every LOT decoration']];
+const CAREER = { light: store.get('cLight', 0), dex: store.get('dex', []), xp: store.get('xp', 0), out: store.get('cOut', 0), caught: store.get('cCaught', 0), badges: store.get('badges', []) };
 const rankOf = xp => { let i = 0; while (i + 1 < RANKS.length && xp >= RANKS[i + 1][0]) i++; return i; };
 function addXP(n) {
+  n = Math.round(n * (1 + 0.1 * upL('xp')) * (G.boost === 'xp2' ? 2 : 1));
   const before = rankOf(CAREER.xp); CAREER.xp += n; store.set('xp', CAREER.xp);
   const after = rankOf(CAREER.xp);
   if (after > before) {
     const bonus = 100 * after; earn(bonus); S.fanfare(); buzz([40, 30, 40]);
     banner('PROMOTED!', `You're now ${RANKS[after][1]}  ·  +${money(bonus)} bonus`, '#7dff7d');
-    if (after === RANKS.length - 1) badge('legend');
+    if (after === RANKS.length - 1) badge('legend'); if (after >= 14) badge('rank15');
   }
 }
 /* Bucko Bucks: kept forever, spent on Corporate Upgrades that make every future run better */
@@ -512,22 +551,219 @@ const UPGRADES = [
   ['ticket', 'Better Tickets', 'Scratch tickets pay out better', 3],
   ['quest', 'Quest Bonus', 'Quests pay 20% more', 3]];
 const UP_COST = [10, 25, 50, 90, 150];
-const META = { bb: store.get('bb', 0), up: store.get('up', {}), login: store.get('login', { last: '', streak: 0 }), missions: null };
-const upL = id => META.up[id] || 0;
+UPGRADES.push(
+  ['insoles', 'Comfy Insoles', 'Walk 5% faster', 5], ['energy', 'Energy Drinks', 'Dash recharges 15% faster', 3],
+  ['overtime', 'Longer Shifts', 'Every day lasts 5 seconds longer', 4], ['cops', 'Police Budget', 'Cops chase runners 15% faster', 3],
+  ['behave', 'Good Behavior', 'One fewer clean exit to clear a strike', 2], ['lawyer', 'Lawyer on Retainer', 'Citation and strike fines 20% smaller', 3],
+  ['bigspend', 'Big Spender Magnet', 'Big spenders show up 2% more often', 3], ['tips', 'Tip Jar', '+$5 for every Bucko you get out', 5],
+  ['xp', 'Training Videos', '10% more XP', 3], ['swhistle', 'Whistle From Day 1', 'Start every run owning the Manager Whistle', 1, 5],
+  ['smap', 'Map App From Day 1', 'Start every run owning the Store Map App', 1, 3], ['sscanner', 'Scanner From Day 1', 'Start every run owning the Coupon Scanner', 1, 3]);
+const upCost = (u, l) => UP_COST[l % u[3]] * (u[4] || 1) * Math.pow(4, Math.floor(l / u[3]));
+const SHOP_TABS = [['hat', 'HATS'], ['vest', 'VESTS'], ['pet', 'PETS'], ['trail', 'TRAILS'], ['cart', 'CARTS'], ['title', 'TITLES'], ['lot', 'LOT'], ['boost', 'BOOSTS'], ['upgrade', 'UPGRADES']];
+const SHOP = [];
+{
+  const add = (cat, list, fn) => list.forEach(a => SHOP.push(Object.assign({ cat, id: cat + ':' + a[0], raw: a[0], name: a[1], desc: a[2], price: a[3] }, fn ? fn(a) : {})));
+  add('hat', [
+    ['visor', 'Classic Visor', 'Standard issue. Smells like popcorn.', 0, 'visor', '#0a7a36'],
+    ['blaze', 'Blaze Orange Cap', 'So the deer AND the Buckos can see you.', 15, 'blaze', '#ff6a00'],
+    ['back', 'Backwards Cap', 'Maximum aerodynamics.', 20, 'back', '#2d5fa8'],
+    ['camo', 'Camo Cap', 'Now you see me. Now you still do.', 25, 'camo', ''],
+    ['trucker', 'Trucker Hat', 'Mesh back for the 4-hour drive to the lake.', 25, 'trucker', '#c0392b'],
+    ['beanie', 'Winter Beanie', 'Pom-pom included at no extra charge.', 30, 'beanie', '#b0302a'],
+    ['hard', 'Hard Hat', 'OSHA would be so proud of you.', 35, 'hard', '#f2c500'],
+    ['cheese', 'Cheesehead', 'Technically a Wisconsin import.', 45, 'cheese', '#f5c518'],
+    ['cowboy', 'Cowboy Hat', 'Yeehaw, but make it aisle 7.', 55, 'cowboy', '#8a5a2b'],
+    ['chef', 'Chef Hat', 'Hot dogs are a dollar. Respect the dollar dog.', 60, 'chef', '#ffffff'],
+    ['bucket', 'Fishing Hat', 'Comes with a lure stuck in it. Do not remove.', 60, 'bucket', '#a89a6a'],
+    ['party', 'Party Hat', "It's somebody's birthday at Buckards every day.", 70, 'party', '#e84393'],
+    ['fez', 'Fez', 'Fezzes are cool.', 80, 'fez', '#b3202a'],
+    ['prop', 'Propeller Beanie', 'Does not actually fly. We checked.', 90, 'prop', '#2d72ad'],
+    ['cone', 'Traffic Cone', "Found it in the parking lot. It's yours now.", 100, 'cone', '#ff7a1a'],
+    ['viking', 'Viking Helmet', 'Raid the clearance aisle.', 130, 'viking', '#9aa0a6'],
+    ['tricorn', 'Pirate Hat', "Arr, ye be needin' a receipt.", 150, 'tricorn', '#1e1e1e'],
+    ['top', 'Top Hat', 'For the classiest Bucko removals.', 180, 'top', '#1e1e1e'],
+    ['manager', "Manager's Cap", 'Gold trim. People stop arguing with you.', 220, 'police', '#0a5a2a'],
+    ['crown', 'Royal Crown', 'King of the Buckos. Bow, peasants.', 300, 'crown', '#e8c547']], a => ({ hat: a[4], hatCol: a[5] }));
+  add('vest', [
+    ['green', 'Buckards Green', 'The classic. Name tag sold separately.', 0, '#0a8a3c'],
+    ['orange', 'Safety Orange', 'Reflective stripes for the night shift.', 10, '#ff7a1a', 1],
+    ['hivis', 'Hi-Vis Yellow', 'Visible from the space station.', 15, '#d7f20a', 1],
+    ['blue', 'Royal Blue', 'Like the other store. Shh.', 20, '#1d4fb0'],
+    ['red', 'Big Red', 'Bullseye. Wait, wrong store.', 20, '#c0392b'],
+    ['purple', 'Purple Haze', 'Very regal. Very purple.', 25, '#6c3aa8'],
+    ['pink', 'Hot Pink', 'Confidence comes in pink.', 25, '#e84393'],
+    ['black', 'Night Shift Black', 'For counting inventory at 3 AM.', 30, '#222222'],
+    ['white', "Painter's White", 'Gets dirty in about four seconds.', 30, '#f0f0f0'],
+    ['brown', 'Work Duck Brown', 'Built like a tailgate.', 40, '#8a5a2b'],
+    ['denim', 'Denim Vest', "Every dad's favorite.", 45, '#3b5b8a'],
+    ['flannel', 'Flannel Vest', 'Peak Midwest.', 60, 'flannel:#b0302a'],
+    ['camo', 'Camo Vest', 'Blend right into the birdseed aisle.', 70, 'camo'],
+    ['tux', 'Tuxedo Vest', 'For black-tie Bucko removal.', 120, '#1b1b1b', 0, 1],
+    ['gold', 'Solid Gold Vest', 'Heavy. Shiny. Totally worth it.', 250, '#d4af37', 1]], a => ({ vest: a[4], stripes: !!a[5], tie: !!a[6] }));
+  add('pet', [
+    ['dog', 'Shop Dog', 'Good boy. Very good boy. Follows you around.', 40, 'dog', '#9a6a3a', 'Woof!'],
+    ['cat', 'Store Cat', 'Knocks things off shelves on purpose.', 45, 'cat', '#e08a3a', 'Mrow.'],
+    ['duck', 'Duck', 'Quack. Waddles after you everywhere.', 50, 'duck', '#f5d33a', 'Quack!'],
+    ['chicken', 'Chicken', 'From the farm aisle. Free range.', 55, 'chicken', '#f4f4f4', 'Bawk!'],
+    ['squirrel', 'Squirrel', 'Escaped from the birdseed aisle.', 60, 'squirrel', '#8a5a2b', '*chitter*'],
+    ['pig', 'Mini Pig', 'Oink. Loves hot dogs. Uh oh.', 70, 'pig', '#f4a6b0', 'Oink!'],
+    ['goat', 'Goat', 'Eats price tags.', 80, 'goat', '#e8e4da', 'Baa!'],
+    ['turtle', 'Turtle', 'Slow and steady. Somehow keeps up.', 90, 'turtle', '#3f8a3a', '...'],
+    ['raccoon', 'Pet Raccoon', "He's reformed. Mostly.", 120, 'raccoon', '#7a7d80', '*rummage*'],
+    ['roomba', 'Robot Vacuum', 'Cleans up spills. Beep boop.', 150, 'roomba', '#33383d', 'Beep boop.'],
+    ['gnome', 'Lawn Gnome', "He walks now. Don't ask.", 200, 'gnome', '#c0392b', 'Ope!'],
+    ['minib', 'Mini Bucko', 'A tiny Bucko. Needs a tiny receipt.', 400, 'minib', '#b0302a', 'Ope!']], a => ({ kind: a[4], color: a[5], line: a[6] }));
+  add('trail', [
+    ['sawdust', 'Sawdust', 'Fresh from the lumber yard.', 20, 'smoke', ['#d9b27a', '#c89a5a']],
+    ['seed', 'Birdseed', 'You will be followed by birds.', 25, 'spark', ['#c8a24a', '#7a5a2a', '#e0c070']],
+    ['receipts', 'Receipts', 'Every receipt is four feet long.', 30, 'spark', ['#ffffff', '#f4f4ee']],
+    ['leaves', 'Fall Leaves', 'Raked up from the garden center.', 40, 'spark', ['#d35400', '#e67e22', '#a04000', '#c0392b']],
+    ['bubbles', 'Bubbles', 'Floor cleaner. Very slippery. Kidding.', 50, 'ring', ['#9fd3ff', '#cfefff']],
+    ['coins', 'Loose Change', 'Dropping pennies like a big shot.', 60, 'spark', ['#ffe14d', '#e8c547']],
+    ['hearts', 'Hearts', 'The Buckos love you.', 80, 'glyph', ['#ff6a9a', '#ff8fb0'], '\u2665'],
+    ['notes', 'Muzak', 'Hum the store jingle wherever you go.', 90, 'glyph', ['#9fe0ff', '#ffffff'], '\u266A'],
+    ['dollars', 'Dollar Signs', 'Cha-ching. Cha-ching. Cha-ching.', 120, 'glyph', ['#7dff7d', '#3fbf5f'], '$'],
+    ['stars', 'Gold Stars', 'Employee of the Month energy.', 160, 'glyph', ['#ffe14d', '#ffd27a'], '\u2605']], a => ({ kind: a[4], cols: a[5], glyph: a[6] }));
+  add('cart', [
+    ['steel', 'Classic Steel', 'Every Bucko cart in the store. Wobbly wheel included.', 0, 'rgba(205,215,220,0.35)', '#7c878d', 2.4, '#c0392b'],
+    ['green', 'Buckards Green', 'Repaint every cart in the store. Brand synergy!', 25, 'rgba(30,170,80,0.35)', '#0a7a36', 2.4, '#ffe14d'],
+    ['red', 'Hot Rod Red', 'Zero to aisle 9 in four seconds.', 40, 'rgba(220,50,50,0.4)', '#a02020', 2.6, '#222222'],
+    ['pink', 'Bubblegum', 'Bucko approved.', 40, 'rgba(240,120,180,0.4)', '#c04080', 2.4, '#ffffff'],
+    ['wood', 'Barn Wood', 'Hand-built out back in the lumber yard.', 60, 'rgba(170,120,70,0.55)', '#6a4320', 2.4, '#3a2a1a'],
+    ['camo', 'Camo Cart', 'Hunting season special.', 70, 'camo', '#4a5a2e', 2.6, '#ff6a00'],
+    ['monster', 'Monster Cart', 'Lifted. Big tires. Very loud.', 120, 'rgba(60,60,70,0.5)', '#222222', 4.2, '#ff6a00'],
+    ['gold', 'Gold-Plated Cart', 'For Buckos of a certain status.', 200, 'rgba(230,190,60,0.5)', '#a8801a', 2.6, '#ffffff']], a => ({ fill: a[4], stroke: a[5], wheel: a[6], handle: a[7] }));
+  add('title', [
+    ['rookie', 'Rookie', 'Floats over your head. Humble beginnings.', 10, '#cfd6cc'], ['ope', 'Ope Lord', 'Floats over your head. Ope.', 20, '#ffe14d'],
+    ['cart', 'Cart Captain', 'Floats over your head. Aye aye.', 30, '#9fe0ff'], ['aisle', 'Aisle Admiral', 'Floats over your head. Commands aisles 1 through 9.', 40, '#9fe0ff'],
+    ['coupon', 'Coupon Royalty', 'Floats over your head. Never pays full price.', 50, '#ffb0d0'], ['hotdog', 'Hot Dog Hero', 'Floats over your head. Still a dollar.', 60, '#ffb08a'],
+    ['raccoon', 'Raccoon Wrangler', 'Floats over your head. He knows what he did.', 70, '#dfe4dc'], ['lumber', 'Lumber Legend', 'Floats over your head. Out the BACK.', 90, '#e0b070'],
+    ['flannel', 'Flannel Baron', 'Floats over your head. Owns 400 flannels.', 110, '#ff8a8a'], ['eleven', 'The 11% Guy', 'Floats over your head. Save 11% on everything.', 130, '#7dff7d'],
+    ['whisper', 'Bucko Whisperer', 'Floats over your head. The Buckos listen.', 180, '#c8a0ff'], ['sultan', 'Sultan of Savings', 'Floats over your head. The final form.', 300, '#ffe14d']], a => ({ color: a[4] }));
+  add('boost', [
+    ['cash2', 'Double Cash Day', 'Everything you earn is doubled for one day.', 30, '2x$'],
+    ['coffee', 'Gas Station Coffee', 'Walk 20% faster for one day.', 12, 'JAVA'],
+    ['slowrun', 'Wet Floor Signs', 'Runners move 30% slower for one day.', 15, 'SLOW'],
+    ['patience', 'Free Hot Dogs', 'Buckos wait 50% longer for one day.', 15, '$1'],
+    ['lucky', 'Lucky Penny', 'Golden Buckos 3x as likely for one day.', 20, '3x'],
+    ['pardon', 'Pardon Slip', 'Erases one strike when the day starts.', 25, '-1'],
+    ['waiver', 'Ticket Waiver', 'Your first mistake of the day is forgiven.', 20, 'OK'],
+    ['overtime', 'Overtime', 'The day lasts 30 seconds longer.', 12, '+30'],
+    ['questx2', 'Quest Rush', 'Quests pay double for one day.', 18, '2xQ'],
+    ['bus', 'Tour Bus', '4 extra Buckos show up. More money!', 15, 'BUS'],
+    ['xp2', 'Training Day', 'Double XP for one day.', 10, '2xP'],
+    ['bb2', 'Bucko Bucks Bonanza', 'Double Bucko Bucks for one day.', 25, '2xB']], a => ({ icon: a[4] }));
+}
+{
+  const add = (cat, list, fn) => list.forEach(a => SHOP.push(Object.assign({ cat, id: cat + ':' + a[0], raw: a[0], name: a[1], desc: a[2], price: a[3] }, fn ? fn(a) : {})));
+  add('hat', [
+    ['bluevisor', 'Blue Visor', 'The other store called. They want it back.', 40, 'visor', '#2d72ad'],
+    ['blackbeanie', 'Black Beanie', 'Mysterious. Brooding. Still says ope.', 50, 'beanie', '#222222'],
+    ['neontrucker', 'Neon Trucker', 'Visible from the parking lot.', 75, 'trucker', '#39d014'],
+    ['orangehard', 'Orange Hard Hat', 'Road crew chic.', 85, 'hard', '#ff7a1a'],
+    ['pinkcowboy', 'Pink Cowboy Hat', 'Yeehaw, but fabulous.', 110, 'cowboy', '#e84393'],
+    ['whitecowboy', 'White Cowboy Hat', 'The hero always wears white.', 140, 'cowboy', '#efe6d0'],
+    ['icefish', 'Ice Fishing Hat', 'Ready for the lake in January.', 160, 'bucket', '#c0392b'],
+    ['purplefez', 'Purple Fez', 'Royal fez energy.', 190, 'fez', '#6c3aa8'],
+    ['bluparty', 'Blue Party Hat', 'The party never stops.', 210, 'party', '#2d9cdb'],
+    ['redviking', 'Red Viking Helmet', 'Pillage the paint aisle.', 260, 'viking', '#a03020'],
+    ['luckytop', 'Lucky Top Hat', 'Green, fancy, and a little lucky.', 320, 'top', '#0a7a36'],
+    ['goldhard', 'Gold Hard Hat', 'For the foreman of foremen.', 400, 'hard', '#d4af37'],
+    ['diamond', 'Diamond Crown', 'Absolutely ridiculous. You earned it.', 750, 'crown', '#bfe9ff']], a => ({ hat: a[4], hatCol: a[5] }));
+  add('vest', [
+    ['teal', 'Teal Vest', 'Calm. Collected. Teal.', 35, '#12a6a6'], ['navy', 'Navy Vest', 'All business.', 40, '#1b2a5a'],
+    ['maroon', 'Maroon Vest', 'Fancy restaurant manager vibes.', 45, '#7a1f2b'], ['lime', 'Lime Vest', 'Zesty.', 50, '#8ad11f'],
+    ['pinkvis', 'Hi-Vis Pink', 'Safety, but make it pink.', 80, '#ff5fa2', 1], ['blueflannel', 'Blue Flannel Vest', 'Lumberjack Tuesday.', 110, 'flannel:#2d5fa8'],
+    ['greenflannel', 'Green Flannel Vest', 'Buckards flannel. Very on brand.', 130, 'flannel:#1f7a3a'], ['redtux', 'Red Tuxedo Vest', 'Prom king of the paint aisle.', 220, '#7a0f0f', 0, 1],
+    ['silver', 'Silver Vest', 'Shiny. Like a trophy.', 320, '#c0c6cc', 1], ['diamondvest', 'Diamond Vest', 'Nobody needs this. You need this.', 650, '#bfe9ff', 1]], a => ({ vest: a[4], stripes: !!a[5], tie: !!a[6] }));
+  add('pet', [
+    ['lab', 'Black Lab', 'Loyal. Drools a little.', 130, 'dog', '#2a2a2a', 'Woof!'], ['golden', 'Golden Retriever', 'Happiest dog in the store.', 180, 'dog', '#d9a441', 'Woof woof!'],
+    ['blackcat', 'Black Cat', 'Brings good luck. Probably.', 160, 'cat', '#2a2a2a', 'Mrrp.'], ['graysquirrel', 'Gray Squirrel', 'Even more nuts than the brown one.', 170, 'squirrel', '#8a8f94', '*chitter*'],
+    ['mallard', 'Mallard', 'Fancy green duck.', 190, 'duck', '#3f8a3a', 'Quack quack!'], ['blackgoat', 'Black Goat', 'Eats receipts. Only receipts.', 240, 'goat', '#3a3a3a', 'BAAA!'],
+    ['goldpig', 'Golden Pig', 'A piggy bank that walks.', 500, 'pig', '#e8c547', 'Oink!'], ['goldroomba', 'Golden Robot Vacuum', 'Cleans in style.', 650, 'roomba', '#c9a227', 'Beep boop. Fancy.']],
+    a => ({ kind: a[4], color: a[5], line: a[6] }));
+  add('trail', [
+    ['smoke', 'Burnout Smoke', 'Like you just did a burnout in the lot.', 70, 'smoke', ['#6a6d70', '#8a8d90']],
+    ['confetti', 'Confetti', 'Every step is a party.', 100, 'spark', ['#ffe14d', '#7dff7d', '#ff6a6a', '#6ad1ff', '#c8a0ff']],
+    ['snow', 'Snowflakes', 'Minnesota mode.', 110, 'glyph', ['#ffffff', '#dff4ff'], '*'],
+    ['clover', 'Clovers', 'Lucky steps.', 140, 'glyph', ['#3fbf5f', '#7dff7d'], '\u2663'],
+    ['diamonds', 'Diamonds', 'Leave a trail of riches.', 220, 'glyph', ['#9fe8ff', '#ffffff'], '\u2666'],
+    ['ope', 'Ope Trail', 'Ope. Ope. Ope. Ope.', 300, 'glyph', ['#ffe14d', '#ffffff'], 'ope']], a => ({ kind: a[4], cols: a[5], glyph: a[6] }));
+  add('cart', [
+    ['taxi', 'Taxi Cart', 'Where to, bud?', 70, 'rgba(245,200,30,0.5)', '#a07a00', 2.4, '#222222'],
+    ['police', 'Police Cart', 'Pull over, Bucko.', 90, 'rgba(40,70,160,0.4)', '#1b2a5a', 2.6, '#ffffff'],
+    ['lowrider', 'Lowrider', 'Rolls real low and real slow.', 110, 'rgba(120,60,170,0.45)', '#4a2070', 1.6, '#e8c547'],
+    ['lumber', 'Lumber Cart', 'Big wheels for big boards.', 130, 'rgba(150,110,60,0.45)', '#5a3a1a', 3.4, '#ffe14d'],
+    ['chrome', 'Chrome Cart', 'You can see your face in it.', 260, 'rgba(225,232,238,0.6)', '#8a959c', 2.6, '#111111'],
+    ['diamondcart', 'Diamond Cart', 'Literally made of diamonds. Do not ask.', 600, 'rgba(180,235,255,0.55)', '#5ab0d0', 2.8, '#ffffff']],
+    a => ({ fill: a[4], stroke: a[5], wheel: a[6], handle: a[7] }));
+  add('title', [
+    ['night', 'Night Shift Hero', 'Floats over your head. Sleeps never.', 150, '#9fb0ff'], ['hoarder', 'Hot Dog Hoarder', 'Floats over your head. Has 11 hot dogs.', 170, '#ffb08a'],
+    ['clearance', 'Clearance King', 'Floats over your head. Everything must go.', 200, '#ffe14d'], ['corral', 'Cart Corral Champ', 'Floats over your head. Rounds up carts.', 220, '#9fe0ff'],
+    ['bouncer', 'Bucko Bouncer', 'Floats over your head. You are not on the list.', 260, '#ff8a8a'], ['gnomeguard', 'Gnome Guardian', 'Floats over your head. Protector of gnomes.', 300, '#ff9a9a'],
+    ['operator', 'The Ope-erator', 'Floats over your head. Ope.', 350, '#ffe14d'], ['regional', 'Regional Legend', 'Floats over your head. Known in three counties.', 420, '#c8a0ff'],
+    ['overlord', 'Corporate Overlord', 'Floats over your head. Owns the parking lot.', 550, '#7dff7d'], ['emperor', 'Bucko Emperor', 'Floats over your head. All hail.', 750, '#ffd27a'],
+    ['boss', 'The Final Boss', 'Floats over your head. You ARE the Bucko Bombers now.', 1000, '#ff6a6a'], ['ultimate', 'Owner of Buckards', 'Floats over your head. The whole store is yours.', 2000, '#ffe14d']],
+    a => ({ color: a[4] }));
+  add('lot', [
+    ['lights', 'String Lights', 'Bulbs all along the roof. They never blink.', 60], ['planters', 'Flower Planters', 'Pots of flowers by the doors.', 70],
+    ['banner', 'Grand Opening Banner', 'Every day is a grand opening.', 90], ['neon', 'Neon OPEN Sign', 'Glows steady. No flicker, promise.', 110],
+    ['hotdog', 'Hot Dog Cart', 'Still a dollar. Out on the sidewalk.', 130], ['flag', 'Buckards Flag', 'Flies proud on the right side of the lot.', 150],
+    ['tubeman', 'Inflatable Tube Man', 'Wiggles all day long out front.', 180], ['gnome', 'Giant Lawn Gnome', 'Twelve feet of gnome.', 220],
+    ['duck', 'Giant Rubber Duck', 'Sits on the roof. Nobody knows why.', 260], ['billboard', 'Roof Billboard', 'SAVE 11% ON EVERYTHING. Up on the roof.', 300],
+    ['balloon', 'Hot Air Balloon', 'Floats over the store.', 380], ['search', 'Searchlights', 'Slow beams sweeping the sky.', 450],
+    ['statue', 'Golden Bucko Statue', 'A monument to the greatest Bucko.', 600], ['tower', 'Water Tower', 'BUCKARDS, written big for the whole town.', 750],
+    ['blimp', 'Buckards Blimp', 'Drifts across the sky, forever.', 1000]]);
+}
+const shopItem = id => SHOP.find(it => it.id === id);
+const FANCY_HATS = new Set(['cheese', 'cowboy', 'chef', 'top', 'prop', 'viking', 'party', 'fez', 'bucket', 'cone', 'crown', 'tricorn']);
+const HAIR_HATS = new Set(['party', 'fez', 'crown', 'cone', 'cheese']);
+const META = { lotHide: store.get('lotHide', []), own: store.get('own', []), eq: store.get('eq', { hat: 'hat:visor', vest: 'vest:green', cart: 'cart:steel' }), boosts: store.get('boosts', {}), armed: store.get('armed', null),
+  bb: store.get('bb', 0), up: store.get('up', {}), login: store.get('login', { last: '', streak: 0 }), missions: null };
+const NO_TIER = new Set(['line', 'behave', 'swhistle', 'smap', 'sscanner']);
+const upRaw = id => META.up[id] || 0;
+const upDef = id => UPGRADES.find(u => u[0] === id);
+const upTiers = u => u[3] >= 3 && !NO_TIER.has(u[0]) ? 3 : 1;
+const upL = id => {                                   // effective level: later tiers count for less
+  const raw = upRaw(id), u = upDef(id); if (!u || upTiers(u) === 1) return raw;
+  let eff = 0; for (let t = 0; t < 3; t++) eff += clamp(raw - t * u[3], 0, u[3]) * [1, 0.6, 0.4][t]; return eff;
+};
+function saveShop() { store.set('own', META.own); store.set('eq', META.eq); store.set('boosts', META.boosts); store.set('armed', META.armed); store.set('bb', META.bb); }
+const owned = it => it.price === 0 || META.own.includes(it.id);
+const ownedCount = () => META.own.length + UPGRADES.reduce((n, u) => n + Math.ceil(upRaw(u[0]) / u[3]), 0);   // every tier you start counts
+const shopaholic = () => Math.floor(ownedCount() / 3) * 0.01;          // +1% cash for every 3 things you own
+function dealId() {                                                    // one thing half off, the same all calendar day
+  let seed = 0; for (const ch of 'deal' + new Date().toDateString()) seed = (seed * 31 + ch.charCodeAt(0)) % 2147483647;
+  const pool = SHOP.filter(it => it.price > 0); return pool[seed % pool.length].id;
+}
+const priceOf = it => it.id === dealId() ? Math.ceil(it.price / 2) : it.price;
+function buyItem(it) {
+  const pr = priceOf(it);
+  if (META.bb < pr || (it.cat !== 'boost' && owned(it))) { S.nope(); return; }
+  META.bb -= pr;
+  if (it.cat === 'boost') { META.boosts[it.id] = (META.boosts[it.id] || 0) + 1; if (!META.armed) META.armed = it.id; }
+  else { META.own.push(it.id); if (it.cat !== 'lot') META.eq[it.cat] = it.id; }
+  saveShop(); S.fanfare(); buzz(30);
+  const n = ownedCount(); if (n >= 25) badge('shop25'); if (n >= 75) badge('shop75'); if (n >= 150) badge('shop150');
+  if (SHOP.filter(x => x.cat === 'lot').every(owned)) badge('lot');
+}
 function bb(n, why) {
+  if (G.boost === 'bb2') n *= 2;
   META.bb += n; store.set('bb', META.bb); G.dayBB = (G.dayBB || 0) + n;
   if (why) G.pops.push({ x: G.player.x + 40, y: G.player.y - 40, text: `+${n} BB`, color: '#9fe0ff', size: 16, t: 0 });
 }
 function buyUpgrade(id) {
-  const u = UPGRADES.find(x => x[0] === id), l = upL(id); if (l >= u[3]) return;
-  const cost = UP_COST[l]; if (META.bb < cost) { S.nope(); return; }
+  const u = upDef(id), l = upRaw(id); if (l >= u[3] * upTiers(u)) return;
+  const cost = upCost(u, l); if (META.bb < cost) { S.nope(); return; }
   META.bb -= cost; META.up[id] = l + 1; store.set('bb', META.bb); store.set('up', META.up); S.fanfare();
+  if (l + 1 > u[3] * 2) badge('tier3');
+  if (upTiers(u) > 1 && (l + 1) % u[3] === 0 && l + 1 < u[3] * 3) G.catNote = { text: `TIER UP!  ${u[1]} ${['', 'II', 'III'][(l + 1) / u[3]]} unlocked`, t: G.clock };
 }
 /* three missions a day, the same for the whole calendar day; progress carries across runs */
 const MISSION_POOL = [
   ['out', 'Get {n} Buckos out', [15, 25, 40]], ['catch', 'Catch {n} runners yourself', [2, 4, 6]], ['golden', 'Get {n} Golden Bucko{s} out', [1, 2]],
   ['quest', 'Finish {n} quests', [2, 3, 5]], ['day', 'Reach day {n}', [3, 4, 6]], ['streak', 'Hit a {n}x streak', [6, 10, 15]],
-  ['raccoon', 'Catch the raccoon', [1]], ['scratch', 'Scratch {n} lucky tickets', [2, 3]]];
+  ['raccoon', 'Catch the raccoon', [1]], ['lightning', 'Get {n} lightning tips (in and out under 25s)', [2, 4, 6]], ['scratch', 'Scratch {n} lucky tickets', [2, 3]]];
 function loadMissions() {
   const today = new Date().toDateString(), saved = store.get('missions', null);
   if (saved && saved.date === today) return (META.missions = saved);
@@ -567,8 +803,9 @@ function collect(b) {                      // a Bucko you got out correctly goes
   if (n >= all) badge('dex');
 }
 function career(k, n) {
-  if (k === 'out') { CAREER.out += n; store.set('cOut', CAREER.out); badge('first'); if (CAREER.out >= 50) badge('out50'); if (CAREER.out >= 250) badge('out250'); }
-  if (k === 'caught') { CAREER.caught += n; store.set('cCaught', CAREER.caught); if (CAREER.caught >= 5) badge('catch5'); }
+  if (k === 'out') { CAREER.out += n; store.set('cOut', CAREER.out); badge('first'); if (CAREER.out >= 50) badge('out50'); if (CAREER.out >= 250) badge('out250');
+    for (const [k, id] of [[1000, 'out1000'], [2500, 'out2500'], [5000, 'out5000'], [10000, 'out10k']]) if (CAREER.out >= k) badge(id); }
+  if (k === 'caught') { CAREER.caught += n; store.set('cCaught', CAREER.caught); if (CAREER.caught >= 5) badge('catch5'); if (CAREER.caught >= 25) badge('catch25'); if (CAREER.caught >= 100) badge('catch100'); }
 }
 function badge(id) {
   if (CAREER.badges.includes(id)) return;
@@ -585,12 +822,13 @@ function strike(why) {
     if (G.toast) G.toast.extra = G.extra;
     return;
   }
+  if (G.boost === 'waiver' && !G.waived) { G.waived = true; S.bad(); pop(G.player.x, G.player.y - 90, 'TICKET WAIVED (boost)', '#9fe0ff', 22); return; }
   G.tickets = (G.tickets || 0) + 1; G.streak = 0; G.clean = 0;
   const isStrike = G.tickets % 2 === 0;                   // the first mistake is just a fine; the second is a strike too
   if (isStrike) G.strikes++;
   const bombers = G.strikes >= MAX_STRIKES;
-  const f = bombers ? 0 : isStrike ? 50 + 25 * G.day : 30 + 10 * G.day;   // the bombers bring their own bill
-  if (f) fine(f);
+  let f = bombers ? 0 : isStrike ? 50 + 25 * G.day : 30 + 10 * G.day;   // the bombers bring their own bill
+  if (f) fine(f = Math.round(f * (1 - 0.2 * upL('lawyer'))));
   S.bad(); G.shake = isStrike ? 12 : 5; buzz(isStrike ? [80, 60, 160] : 60);
   G.toast = { extra: 0, ticketOnly: !isStrike, bombers,
     head: bombers ? `BUCKO BOMBERS AUTHORIZED  -  ${threat().ac}` : !isStrike ? 'CITATION  -  Federal Bureau of Bucko Affairs'
@@ -694,10 +932,10 @@ function hit(x, y, w, h, fn) {
   HITS.push({ x1: Math.min(a.x, b.x) / dpr, y1: Math.min(a.y, b.y) / dpr, x2: Math.max(a.x, b.x) / dpr, y2: Math.max(a.y, b.y) / dpr, fn });
 }
 function bigBtns() {
-  const r = clamp(Math.min(cw, ch) * 0.11, 34, 58), X = x => touchy() ? cw - x : x;   // touch: mirrored to the left
+  const r = clamp(Math.min(cw, ch) * 0.11, 34, 58), X = x => touchy() && SET.joySide !== 'left' ? cw - x : x;   // touch: buttons on the side the stick isn't
   return { r, dash: { x: X(cw - r * 3.4 - 14), y: ch - r * 0.8 - 14 }, go: { x: X(cw - r - 14), y: ch - r - 14 }, wh: { x: X(cw - r - 14), y: ch - r * 3.2 - 14 } };
 }
-function joyBase() { const R = clamp(Math.min(cw, ch) * 0.16, 52, 80); return { R, x: cw - R - 28, y: ch - R - 28 }; }
+function joyR() { return clamp(Math.min(cw, ch) * 0.13, 46, 70) * [0.8, 1, 1.25][SET.joySize]; }
 
 addEventListener('keydown', e => {
   if (keys[e.code]) return; keys[e.code] = true;
@@ -723,6 +961,10 @@ function cycleGfx() {
   gfxMode = gfxMode === 'auto' ? 'high' : gfxMode === 'high' ? 'low' : 'auto';
   store.set('gfx', gfxMode); autoLow = false; staticLayer = null; resize();
 }
+function applyVolume() {
+  if (S.master) S.master.gain.value = 0.9 * VOLS[SET.vol];
+  if (M.timer && M.gain && S.ac) M.gain.gain.setTargetAtTime(0.16 * VOLS[SET.mvol], S.ac.currentTime, 0.1);
+}
 function toggleMusic() { M.on = !M.on; store.set('music', M.on); if (M.on) M.start(); else M.stop(); }
 function pause() { G.state = 'pause'; joy.id = null; }
 function resume() { G.state = 'play'; }
@@ -733,7 +975,7 @@ function openDoors() {
     store.set('bonusDay', today); earn(150); addXP(25);
     setTimeout(() => banner('DAILY BONUS', 'Thanks for coming in today  ·  +$150', '#7dff7d'), 2700);
   }
-  banner('DOORS OPEN', `Day ${G.day}  ·  ${dayCfg(G.day).total} Buckos  ·  doors close at 9:00`, '#ffe14d');
+  banner('DOORS OPEN', `Day ${G.day}  ·  ${dayCfg(G.day).total} Buckos` + (G.boost ? `  ·  BOOST: ${shopItem('boost:' + G.boost).name}` : '  ·  doors close at 9:00'), '#ffe14d');
 }
 function banner(text, sub, col = '#ffe14d') { G.banner = { text, sub, col, t: 0 }; }
 function spawnCoins(x, y, n) {           // world point -> flying to the wallet in the HUD
@@ -742,7 +984,7 @@ function spawnCoins(x, y, n) {           // world point -> flying to the wallet 
 }
 function reopen() { G.level = Math.min(G.level + 1, LADDER.length - 1); G.strikes = Math.min(MAX_STRIKES - 1, Math.floor((G.extra || 0) / 2)); G.extra = 0; G.tickets = 0; G.day++; startDay(); M.start(); }
 function primary() {                       // Space / Enter: the obvious next thing on each screen
-  if (G.state === 'title') { if (META.loginReward) META.loginReward = null; else if (G.showBadges || G.showUpgrades || G.showMissions) G.showBadges = G.showUpgrades = G.showMissions = false; else newGame(); }
+  if (G.state === 'title') { if (META.loginReward) META.loginReward = null; else if (G.showBadges || G.showUpgrades || G.showMissions || G.showSettings) G.showBadges = G.showUpgrades = G.showMissions = G.showSettings = false; else newGame(); }
   else if (G.state === 'intro') openDoors();
   else if (G.state === 'summary') G.state = 'shop';
   else if (G.state === 'shop') { G.day++; startDay(); }
@@ -758,12 +1000,11 @@ cv.addEventListener('pointerdown', e => {
   for (let i = HITS.length - 1; i >= 0; i--) { const h = HITS[i]; if (px >= h.x1 && px <= h.x2 && py >= h.y1 && py <= h.y2) { h.fn(); return; } }
   if (G.state === 'play') {
     const B = bigBtns();
-    if (Math.hypot(px - B.go.x, py - B.go.y) < B.r + 10) { letGo(); return; }
+    if (G.player.chain.length && Math.hypot(px - B.go.x, py - B.go.y) < B.r + 10) { letGo(); return; }
     if (G.perks.whistle && Math.hypot(px - B.wh.x, py - B.wh.y) < B.r * 0.8 + 10) { blowWhistle(); return; }
-    if (touchy() && Math.hypot(px - B.dash.x, py - B.dash.y) < B.r * 0.75 + 8) { dash(); return; }
-    if (joy.id === null && (!touchy() || px > cw * 0.45)) {   // touch: right side only, stick stays put
-      const J = joyBase(); joy.id = e.pointerId; joy.x = px; joy.y = py;
-      if (touchy()) { joy.ox = J.x; joy.oy = J.y; } else { joy.ox = px; joy.oy = py; }
+    if (joy.id === null) {                     // the stick appears wherever your thumb lands and stays put there
+      joy.id = e.pointerId; joy.ox = joy.x = px; joy.oy = joy.y = py; joy.touch = e.pointerType === 'touch';
+      if ((touchy() || joy.touch) && performance.now() - (joy.upAt || 0) < 280) dash();   // double-tap and hold = dash
       try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     }
     return;
@@ -771,7 +1012,7 @@ cv.addEventListener('pointerdown', e => {
   if (G.state === 'intro') openDoors();
 }, { passive: false });
 cv.addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; if (e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
-const endJoy = e => { mouse.down = false; if (e.pointerType === 'touch') mouse.x = mouse.y = -1; if (e.pointerId === joy.id) joy.id = null; };
+const endJoy = e => { mouse.down = false; if (e.pointerType === 'touch') mouse.x = mouse.y = -1; if (e.pointerId === joy.id) { joy.id = null; joy.upAt = performance.now(); } };
 cv.addEventListener('pointerup', endJoy); cv.addEventListener('pointercancel', endJoy);
 cv.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -780,7 +1021,7 @@ function moveInput() {
   if (keys.KeyA || keys.ArrowLeft) mx--; if (keys.KeyD || keys.ArrowRight) mx++;
   if (keys.KeyW || keys.ArrowUp) my--; if (keys.KeyS || keys.ArrowDown) my++;
   if (joy.id !== null) {
-    const fixed = touchy(), dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), max = fixed ? joyBase().R : 64;
+    const fixed = touchy() || joy.touch, dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), max = fixed ? joyR() : 64;
     if (m > 6) { const k = Math.min(m, max) / max; mx = dx / m * k; my = dy / m * k; }
     if (!fixed && m > max) { joy.ox = joy.x - dx / m * max; joy.oy = joy.y - dy / m * max; }   // mouse: base drags along
   }
@@ -796,14 +1037,14 @@ function letGo() {
 }
 function dash() {
   if (G.state !== 'play' || G.dashCD > 0) return;
-  G.dashT = 0.45; G.dashCD = 2.5; S.whoosh(0); buzz(15);
+  G.dashT = 0.45; G.dashCD = 2.5 * (1 - 0.15 * upL('energy')); S.whoosh(0); buzz(15);
   const p = G.player; for (let i = 0; i < 8; i++) G.parts.push({ x: p.x + rnd(-10, 10), y: p.y + 14, vx: rnd(-60, 60), vy: rnd(-30, 0), life: 0.5, t: 0, c: '#c9ccc2', s: 7, kind: 'smoke' });
 }
 function blowWhistle() {
   if (!G.perks.whistle || G.whistleCD > 0 || G.state !== 'play') return;
-  G.whistleCD = 16; S.whistle(); buzz(40);
+  G.whistleCD = whistleCDMax(); S.whistle(); buzz(40);
   const p = G.player;
-  for (const b of G.buckos) if ((b.state === 'shop' || b.state === 'wait' || b.state === 'runner') && dist(b, p) < 300) { b.lure = 3; b.pause = 0; b.cool = 0; }
+  for (const b of G.buckos) if ((b.state === 'shop' || b.state === 'wait' || b.state === 'runner') && dist(b, p) < whistleRange()) { b.lure = 3; b.pause = 0; b.cool = 0; }
   for (let i = 0; i < 18; i++) G.parts.push({ x: p.x, y: p.y, vx: Math.cos(i / 18 * 6.28) * 300, vy: Math.sin(i / 18 * 6.28) * 300, life: 0.5, t: 0, c: '#fff6a0', s: 4, kind: 'spark' });
 }
 
@@ -827,7 +1068,7 @@ function stepToward(o, t, sp, dt) {
 }
 function patienceFor(b) {
   const base = b.sneaky ? rnd(25, 40) : rnd(60, 100);
-  return base * Math.max(0.6, 1 - 0.05 * (G.day - 1)) * (1 + 0.1 * upL('patience'));
+  return base * Math.max(0.6, 1 - 0.05 * (G.day - 1)) * (1 + 0.1 * upL('patience')) * (G.boost === 'patience' ? 1.5 : 1);
 }
 function gotIt(b, quiet) {
   b.has = true; if (b.state !== 'chain') b.state = 'wait'; b.target = null;
@@ -860,7 +1101,7 @@ function update(dt) {
 
   const p = G.player, { mx, my } = moveInput();
   G.dashT = Math.max(0, G.dashT - dt); G.dashCD = Math.max(0, G.dashCD - dt);
-  const SP = 245 * (1 + 0.12 * G.perks.shoes) * (G.dashT > 0 ? 1.9 : 1);
+  const SP = 245 * (1 + shoeBoost()) * (1 + 0.05 * upL('insoles')) * (G.boost === 'coffee' ? 1.2 : 1) * (G.dashT > 0 ? 1.9 : 1);
   const slippy = G.spill && dist(p, G.spill) < G.spill.r;
   if (slippy) {                                   // on the oil: you keep sliding the way you were going
     p.vx += (mx * SP - p.vx) * Math.min(1, dt * 1.1); p.vy += (my * SP - p.vy) * Math.min(1, dt * 1.1);
@@ -870,11 +1111,17 @@ function update(dt) {
   p.x += p.vx * dt; p.y += p.vy * dt; pushOut(p, 19);
   if (mx || my) {
     p.walk += dt * 10; if (Math.abs(mx) > 0.1) p.dir = mx > 0 ? 1 : -1;
-    G.dustT -= dt; if (G.dustT <= 0) { G.dustT = 0.14; G.parts.push({ x: p.x + rnd(-6, 6), y: p.y + 16, vx: -p.vx * 0.1, vy: -8, life: 0.45, t: 0, c: '#b9bdb3', s: 5, kind: 'smoke' }); }
+    G.dustT -= dt; if (G.dustT <= 0) { G.dustT = 0.14; trailPuff(p); }
   }
   const last = p.trail[p.trail.length - 1];
   if (Math.hypot(p.x - last.x, p.y - last.y) > 4) { p.trail.push({ x: p.x, y: p.y }); if (p.trail.length > 700) p.trail.shift(); }
   G.whistleCD = Math.max(0, G.whistleCD - dt);
+  if (G.pet) {                                         // your pet trots along behind you
+    const pt = G.pet, tx = p.x - p.dir * 34, ty = p.y + 14, dd = Math.hypot(tx - pt.x, ty - pt.y);
+    if (dd > 6) { stepToward(pt, { x: tx, y: ty }, Math.max(140, dd * 4), dt); pt.walk += dt * 14; } else pt.vx = pt.vy = 0;
+    pt.dir = p.x > pt.x + 4 ? 1 : p.x < pt.x - 4 ? -1 : pt.dir;
+    if ((pt.sayT -= dt) <= 0) { pt.sayT = rnd(9, 18); pop(pt.x, pt.y - 30, shopItem(META.eq.pet).line, '#fff', 15); }
+  }
 
   // PA, lane closures, the clock, the quest timer
   G.paT -= dt; if (G.paT <= 0) { G.paT = rnd(24, 40); paSay(G.strikes >= MAX_STRIKES - 2 && Math.random() < 0.5 ? 'Attention: federal agents are in the store. Please shop normally.' : pick(PA_LINES)); }
@@ -921,7 +1168,7 @@ function update(dt) {
     }
     if (b.state === 'runner') {
       const tgt = runnerTarget(b);
-      stepToward(b, tgt, 105, dt); b.walk += dt * 12; pushOut(b, R);
+      stepToward(b, tgt, 105 * (G.boost === 'slowrun' ? 0.7 : 1), dt); b.walk += dt * 12; pushOut(b, R);
       if (b.y > ZONE_Y && ((b.x > EXIT.x && b.x < EXIT.x + EXIT.w) || (b.x > ENTRANCE.x && b.x < ENTRANCE.x + ENTRANCE.w))) escape(b);
     } else {
       b.chat -= dt;
@@ -961,7 +1208,7 @@ function update(dt) {
       const b = c.chase;
       if (!b || b.state !== 'runner') { c.phase = 'out'; c.t = 0; }
       else {
-        stepToward(c, b, 180, dt); c.walk += dt * 13; if (c.y < 860) pushOut(c, R);
+        stepToward(c, b, 180 * (1 + 0.15 * upL('cops')), dt); c.walk += dt * 13; if (c.y < 860) pushOut(c, R);
         if (dist(c, b) < 32) {
           b.state = 'wait'; b.patMax = b.patience = 35; b.cool = 1.5; b.target = null; say(b, 'caught', 2);
           c.say = { text: pick(['Nice try, pal. Go PAY for your Bucko Goods!', 'Not on my watch!', 'Back inside. Register. Now.']), t: 0, life: 2.6 };
@@ -1053,14 +1300,23 @@ function leave(b, door) {
   if (bad) { pop(b.x, b.y - 52, 'WRONG!', '#ff4d4d', 30); b.say = { text: 'Uh oh...', t: 0, life: 1.2 }; strike(bad); return; }
   G.streak++; G.bestStreak = Math.max(G.bestStreak, G.streak);
   G.clean = (G.clean || 0) + 1;
-  if (G.clean >= 5 && G.strikes > 0) { G.strikes--; G.clean = 0; S.fanfare(); banner('GOOD BEHAVIOR', '5 clean exits in a row - one strike removed', '#7dff7d'); }
+  if (G.clean >= cleanNeed() && G.strikes > 0) { G.strikes--; G.clean = 0; S.fanfare(); banner('GOOD BEHAVIOR', `${cleanNeed()} clean exits in a row - one strike removed`, '#7dff7d'); }
   G.trip = G.clock - G.lastOut < 2.5 ? G.trip + 1 : 1; G.lastOut = G.clock;
   const mult = 1 + 0.25 * Math.min(G.streak - 1, 8);
   let v = (b.type === 'contractor' ? 120 + rnd(0, 380) : b.price + 10) * mult;
   if (G.trip > 1) v += 15 * (G.trip - 1);
+  v += 5 * upL('tips');
+  const secs = (b.inT ?? G.timer) - G.timer, fast = clamp(1 - secs / 80, 0, 1);
+  if (fast > 0) {
+    const lightning = secs < 25, tip = Math.round((15 + 8 * G.day) * fast * (lightning ? 2 : 1));
+    v += tip; G.tipsToday = (G.tipsToday || 0) + tip;
+    pop(b.x, b.y - 100, `${lightning ? 'LIGHTNING TIP' : secs < 45 ? 'QUICK TIP' : 'TIP'} +${money(tip)}  (${Math.round(secs)}s)`, lightning ? '#ffe14d' : '#9fe0ff', lightning ? 22 : 17);
+    if (G.tipsToday >= 1000) badge('tipjar');
+    if (lightning) { mission('lightning'); CAREER.light = (CAREER.light || 0) + 1; store.set('cLight', CAREER.light); if (CAREER.light >= 25) badge('light25'); say(b, 'thanks', 1.2); b.say.text = pick(['That was FAST. Here, take this.', 'In and out! Love it!', 'Fastest trip of my life, bud', 'Ope, already done? Here ya go']); }
+  }
   if (b.golden) { v = v * 5 + 100; banner('GOLDEN BUCKO!', `${b.name} tipped like royalty  ·  x5`, '#ffe14d'); S.jackpot(); confetti(b.x, b.y - 30, 60); badge('golden'); }
   addXP(b.golden ? 60 : 10 + Math.min(G.streak, 10));
-  career('out', 1); if (G.streak >= 10) badge('streak10');
+  career('out', 1); if (G.streak >= 10) badge('streak10'); if (G.streak >= 20) badge('streak20'); if (G.streak >= 30) badge('streak30');
   bb(b.golden ? 3 : 1, true); mission('out'); mission('streak', G.streak, true); if (b.golden) mission('golden'); if (!G.badgeToast) collect(b); else setTimeout(() => collect(b), 3500);
   earn(v); S.out(); S.coin(); say(b, 'thanks', 1.2); b.happy = true;
   const SHOUT = { 3: 'NICE!', 5: 'OPE-TASTIC!', 8: 'BUCKTACULAR!', 12: 'UNBUCKLIEVABLE!', 16: 'FLANNEL FURY!', 20: 'LEGENDARY BUCKO HANDLER!', 30: 'ARE YOU EVEN HUMAN?!' };
@@ -1073,7 +1329,7 @@ function leave(b, door) {
     earn(10000); badge('jackpot'); S.jackpot(); buzz([60, 40, 60, 40, 200]); confetti(b.x, b.y - 30, 120);
     G.toast = { head: 'JACKPOT!', body: `${b.name} found $10,000 in his truck and spent every cent at Buckards.`, fine: 0, t: 0, life: 4.5, n: 0, good: true };
     banner('JACKPOT!', '+$10,000', '#7dff7d'); spawnCoins(b.x, b.y, 24);
-  } else if (r < 0.05) {
+  } else if (r < 0.05 + 0.02 * upL('bigspend')) {
     const big = Math.round(rnd(800, 2500)); earn(big); S.fanfare(); confetti(b.x, b.y - 30, 50);
     pop(b.x, b.y - 80, `BIG SPENDER! +${money(big)}`, '#7dff7d', 26);
     say(b, 'thanks'); b.say.text = pick(['Throw in a riding mower', 'Gimme the big grill too', 'Add a hot tub, why not']);
@@ -1109,7 +1365,8 @@ function endDay(closing) {
   }
   const bonus = closing ? 0 : Math.round(G.timer) * 5;
   if (bonus) earn(bonus);
-  bb(5); mission('day', G.day + 1, true);
+  bb(5 + Math.min(G.day, 10)); mission('day', G.day + 1, true);
+  G.tipsToday = 0;
   G.summary = { left: closing ? left.length : 0, bonus, ticket: rollTicket(), scratched: false, scratchT: 0 };
   G.state = 'summary';
 }
@@ -1270,6 +1527,13 @@ function burst(x, y, k) {
   for (let i = 0; i < 22 * k; i++) G.parts.push({ x, y, vx: rnd(-1, 1) * 280 * k, vy: rnd(-1, 1) * 280 * k, life: rnd(0.4, 1.0), t: 0,
     c: pick(['#ffef7a', '#ffb02e', '#ff6a00', '#e23b1a']), s: rnd(8, 20) * Math.min(k, 2.5) * 0.7, kind: 'fire' });
   for (let i = 0; i < 9 * k; i++) G.parts.push({ x, y, vx: rnd(-60, 60) * k, vy: rnd(-90, 10) * k, life: rnd(1.2, 2.6), t: 0, c: '#3d3a38', s: rnd(18, 34) * Math.min(k, 2.5) * 0.6, kind: 'smoke' });
+}
+function trailPuff(p) {
+  const t = META.eq.trail && shopItem(META.eq.trail);
+  if (!t) { G.parts.push({ x: p.x + rnd(-6, 6), y: p.y + 16, vx: -p.vx * 0.1, vy: -8, life: 0.45, t: 0, c: '#b9bdb3', s: 5, kind: 'smoke' }); return; }
+  const up = t.kind === 'glyph' || t.kind === 'ring';
+  G.parts.push({ x: p.x + rnd(-8, 8), y: p.y + 14 + rnd(-3, 3), vx: rnd(-14, 14), vy: up ? -28 : rnd(-6, 6), life: up ? 1.1 : 0.9, t: 0,
+    c: pick(t.cols), s: t.kind === 'glyph' ? 15 : t.kind === 'smoke' ? 5 : 4, kind: t.kind, g: t.glyph });
 }
 function updateParts(dt) {
   for (const q of G.parts) {
@@ -1473,6 +1737,126 @@ function drawCounter(c) {
 /* ------------------------------------------------------------ people, drawn */
 const GRADS = {};
 function shadeGrad(key, make) { return GRADS[key] || (GRADS[key] = make()); }
+let _pl = null, _plKey = '';
+function playerLook() { const k = META.eq.hat + '|' + META.eq.vest; if (k !== _plKey) { _plKey = k; _pl = lookWith(META.eq.hat, META.eq.vest); } return _pl; }
+function lookWith(hatId, vestId) {
+  const L = Object.assign({}, PLAYER_LOOK), h = shopItem(hatId), v = shopItem(vestId);
+  if (h) { L.hat = h.hat; L.hatCol = h.hatCol; }
+  if (v) { L.vest = v.vest.startsWith('flannel:') ? pattern('flannel', v.vest.slice(8)) : v.vest === 'camo' ? pattern('camo', '') : v.vest; L.stripes = v.stripes; L.tie = v.tie; }
+  return L;
+}
+function drawFancyHat(L, hy, hr, d) {
+  const c = L.hatCol, top = hy - hr * 0.35, OL = 'rgba(25,18,12,0.75)';
+  const poly = pts => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x * hr, top + y * hr) : g.moveTo(x * hr, top + y * hr)); g.closePath(); };
+  g.fillStyle = c; g.strokeStyle = OL; g.lineWidth = 1.5;
+  if (L.hat === 'cheese') {
+    poly([[-1.15, 0.1], [1.15, 0.1], [-0.2, -1.25]]); g.fill(); g.stroke();
+    g.fillStyle = '#d9a400'; for (const [a, b, r] of [[-0.4, -0.2, 0.16], [0.35, -0.02, 0.12], [-0.2, -0.65, 0.1]]) { g.beginPath(); g.arc(a * hr, top + b * hr, r * hr, 0, 7); g.fill(); }
+  } else if (L.hat === 'cowboy') {
+    g.beginPath(); g.ellipse(0, top + hr * 0.05, hr * 1.75, hr * 0.32, 0, 0, 7); g.fill(); g.stroke();
+    rr(-hr * 0.7, top - hr * 0.95, hr * 1.4, hr * 1.0, hr * 0.35); g.fill(); g.stroke();
+    g.fillStyle = '#3a2410'; g.fillRect(-hr * 0.7, top - hr * 0.22, hr * 1.4, hr * 0.18);
+  } else if (L.hat === 'chef') {
+    for (const [a, b] of [[-0.45, -0.95], [0.45, -0.95], [0, -1.3]]) { g.beginPath(); g.arc(a * hr, top + b * hr, hr * 0.55, 0, 7); g.fill(); g.stroke(); }
+    rr(-hr * 0.75, top - hr * 0.5, hr * 1.5, hr * 0.6, 3); g.fill(); g.stroke();
+  } else if (L.hat === 'top') {
+    g.beginPath(); g.ellipse(0, top + hr * 0.05, hr * 1.25, hr * 0.22, 0, 0, 7); g.fill(); g.stroke();
+    g.fillRect(-hr * 0.72, top - hr * 1.5, hr * 1.44, hr * 1.5); g.strokeRect(-hr * 0.72, top - hr * 1.5, hr * 1.44, hr * 1.5);
+    g.fillStyle = '#b3202a'; g.fillRect(-hr * 0.72, top - hr * 0.42, hr * 1.44, hr * 0.25);
+  } else if (L.hat === 'prop') {
+    g.beginPath(); g.arc(0, hy - hr * 0.2, hr * 1.02, Math.PI, 0); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#c0392b'; g.fillRect(-hr, hy - hr * 0.42, hr * 2, hr * 0.22);
+    g.strokeStyle = '#333'; g.beginPath(); g.moveTo(0, hy - hr * 1.2); g.lineTo(0, hy - hr * 1.55); g.stroke();
+    g.fillStyle = '#ffd23a'; g.beginPath(); g.ellipse(0, hy - hr * 1.6, hr * Math.abs(Math.cos(G.clock * 7)) + 1, hr * 0.16, 0, 0, 7); g.fill();
+  } else if (L.hat === 'viking') {
+    g.fillStyle = '#f2ead3';
+    for (const s of [-1, 1]) { g.beginPath(); g.moveTo(s * hr * 0.8, top - hr * 0.2); g.quadraticCurveTo(s * hr * 1.7, top - hr * 0.5, s * hr * 1.45, top - hr * 1.5); g.quadraticCurveTo(s * hr * 1.3, top - hr * 0.8, s * hr * 0.6, top - hr * 0.6); g.closePath(); g.fill(); g.stroke(); }
+    g.fillStyle = c; g.beginPath(); g.arc(0, hy - hr * 0.2, hr * 1.04, Math.PI, 0); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#7a6a3a'; g.fillRect(-hr * 1.04, hy - hr * 0.42, hr * 2.08, hr * 0.24);
+  } else if (L.hat === 'party') {
+    poly([[-0.7, 0.05], [0.7, 0.05], [0.1, -1.7]]); g.fill(); g.stroke();
+    g.fillStyle = '#ffe14d'; for (const [a, b] of [[-0.25, -0.25], [0.3, -0.5], [0, -0.95]]) { g.beginPath(); g.arc(a * hr, top + b * hr, hr * 0.1, 0, 7); g.fill(); }
+    g.beginPath(); g.arc(hr * 0.1, top - hr * 1.75, hr * 0.2, 0, 7); g.fill();
+  } else if (L.hat === 'fez') {
+    poly([[-0.65, 0.05], [0.65, 0.05], [0.5, -0.95], [-0.5, -0.95]]); g.fill(); g.stroke();
+    g.strokeStyle = '#111'; g.beginPath(); g.moveTo(0, top - hr * 0.95); g.lineTo(d * hr * 0.7, top - hr * 0.4); g.stroke();
+    g.fillStyle = '#111'; g.beginPath(); g.arc(d * hr * 0.7, top - hr * 0.4, 2, 0, 7); g.fill();
+  } else if (L.hat === 'bucket') {
+    g.beginPath(); g.ellipse(0, top + hr * 0.1, hr * 1.35, hr * 0.3, 0, 0, 7); g.fill(); g.stroke();
+    poly([[-0.85, 0.1], [0.85, 0.1], [0.65, -0.75], [-0.65, -0.75]]); g.fill(); g.stroke();
+    g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(-hr * 0.8, top - hr * 0.15, hr * 1.6, hr * 0.18);
+    g.fillStyle = '#e84141'; g.beginPath(); g.arc(hr * 0.4, top - hr * 0.4, hr * 0.13, 0, 7); g.fill();
+  } else if (L.hat === 'cone') {
+    g.fillStyle = '#ff7a1a'; rr(-hr, top - hr * 0.05, hr * 2, hr * 0.25, 2); g.fill(); g.stroke();
+    poly([[-0.75, 0], [0.75, 0], [0, -2.1]]); g.fill();
+    g.save(); g.clip(); g.fillStyle = '#fff'; g.fillRect(-hr, top - hr * 0.95, hr * 2, hr * 0.3); g.fillRect(-hr, top - hr * 1.5, hr * 2, hr * 0.22); g.restore();
+    poly([[-0.75, 0], [0.75, 0], [0, -2.1]]); g.stroke();
+  } else if (L.hat === 'crown') {
+    poly([[-0.85, 0.05], [-0.85, -0.75], [-0.45, -0.35], [0, -0.95], [0.45, -0.35], [0.85, -0.75], [0.85, 0.05]]); g.fill(); g.stroke();
+    for (const [a, col] of [[-0.5, '#2d72ad'], [0, '#c0392b'], [0.5, '#2d72ad']]) { g.fillStyle = col; g.beginPath(); g.arc(a * hr, top - hr * 0.15, hr * 0.12, 0, 7); g.fill(); }
+  } else if (L.hat === 'tricorn') {
+    g.beginPath(); g.moveTo(-hr * 1.4, top + hr * 0.05); g.quadraticCurveTo(0, top - hr * 0.35, hr * 1.4, top + hr * 0.05);
+    g.lineTo(hr * 0.9, top - hr * 0.8); g.quadraticCurveTo(0, top - hr * 1.3, -hr * 0.9, top - hr * 0.8); g.closePath(); g.fill(); g.stroke();
+    g.strokeStyle = '#e8c547'; g.lineWidth = 2; g.beginPath(); g.moveTo(-hr * 1.3, top); g.quadraticCurveTo(0, top - hr * 0.38, hr * 1.3, top); g.stroke();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(0, top - hr * 0.55, hr * 0.2, 0, 7); g.fill();
+  }
+  g.strokeStyle = OL; g.lineWidth = 1.5;
+}
+const MINI_LOOK = { skin: '#f1c27d', pants: '#4a6fa5', shirt: 'flannel', shirtCol: '#b0302a', hat: 'trucker', hatCol: '#c0392b', belly: 1.1, hair: '#5a3a1a', beard: true };
+function drawPet(id, x, y, d, walk, moving) {
+  const it = shopItem(id); if (!it) return;
+  const k = it.kind, c = it.color, sw = moving ? Math.sin(walk) : 0, OL = 'rgba(25,18,12,0.75)';
+  if (k === 'minib') { drawPerson({ x, y, dir: d, walk, vx: moving ? d * 50 : 0, vy: 0, seed: 3 }, MINI_LOOK, { r: 10 }); return; }
+  g.save(); g.translate(x, y);
+  g.fillStyle = 'rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(0, 8, 14, 5, 0, 0, 7); g.fill();
+  g.scale(d, 1); g.translate(0, -Math.abs(sw) * 1.5); g.strokeStyle = OL; g.lineWidth = 1.3; g.lineJoin = 'round';
+  const eye = (ex, ey) => { g.fillStyle = '#111'; g.beginPath(); g.arc(ex, ey, 1.5, 0, 7); g.fill(); };
+  if (k === 'roomba') {
+    g.fillStyle = c; g.beginPath(); g.ellipse(0, 2, 13, 9, 0, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = '#5a6066'; g.beginPath(); g.ellipse(0, 0, 9, 6, 0, 0, 7); g.fill();
+    g.fillStyle = '#3fdc6a'; g.beginPath(); g.arc(6, -1, 1.8, 0, 7); g.fill();
+  } else if (k === 'gnome') {
+    g.fillStyle = '#3a2a1a'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(s * 3 + s * sw * 2, 6, 3, 2, 0, 0, 7); g.fill(); }
+    g.fillStyle = '#2d5fa8'; rr(-6, -8, 12, 13, 4); g.fill(); g.stroke();
+    g.fillStyle = '#f1c27d'; g.beginPath(); g.arc(0, -12, 5, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -9, 4.5, 0.1, Math.PI - 0.1); g.fill();
+    g.fillStyle = c; g.beginPath(); g.moveTo(-6, -14); g.lineTo(1, -30); g.lineTo(6, -14); g.closePath(); g.fill(); g.stroke(); eye(2, -13);
+  } else if (k === 'turtle') {
+    g.fillStyle = '#7ab05a'; for (const [lx, ly] of [[-8, 4], [8, 4], [-6, 6], [6, 6]]) { g.beginPath(); g.arc(lx + sw, ly, 2.5, 0, 7); g.fill(); }
+    g.beginPath(); g.arc(13, -1, 4, 0, 7); g.fill(); g.stroke(); eye(14.5, -2);
+    g.fillStyle = c; g.beginPath(); g.ellipse(0, -2, 12, 8, 0, Math.PI, 0); g.closePath(); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.moveTo(-4, -9); g.lineTo(-6, -1); g.moveTo(4, -9); g.lineTo(6, -1); g.moveTo(-10, -4); g.lineTo(10, -4); g.stroke();
+  } else if (k === 'duck' || k === 'chicken') {
+    g.strokeStyle = '#e08a1a'; g.lineWidth = 2; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(s * 3, 0); g.lineTo(s * 3 + s * sw * 2, 7); g.stroke(); }
+    g.strokeStyle = OL; g.lineWidth = 1.3;
+    g.fillStyle = c; g.beginPath(); g.ellipse(0, -6, 10, 8, 0, 0, 7); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(-9, -8); g.lineTo(-15, -12); g.lineTo(-10, -3); g.closePath(); g.fill(); g.stroke();
+    g.beginPath(); g.arc(7, -15, 5.5, 0, 7); g.fill(); g.stroke(); eye(9, -16);
+    g.fillStyle = '#f39c12'; g.beginPath(); g.moveTo(12, -15); g.lineTo(17, -13); g.lineTo(12, -12); g.closePath(); g.fill();
+    if (k === 'chicken') { g.fillStyle = '#e03030'; g.beginPath(); g.arc(6, -21, 2.2, 0, 7); g.arc(8.5, -20.5, 2, 0, 7); g.fill(); g.beginPath(); g.arc(12, -10, 1.6, 0, 7); g.fill(); }
+    g.fillStyle = 'rgba(0,0,0,0.12)'; g.beginPath(); g.ellipse(-1, -6, 6, 4, -0.2, 0, 7); g.fill();
+  } else {                                           // the four-legged crowd
+    const big = k === 'goat' ? 1.1 : 1;
+    if (k === 'squirrel') { g.fillStyle = c; g.beginPath(); g.ellipse(-12, -14, 6, 11, -0.3, 0, 7); g.fill(); g.stroke(); }
+    if (k === 'raccoon') { g.fillStyle = c; g.beginPath(); g.ellipse(-13, -6, 8, 4, -0.4, 0, 7); g.fill(); g.stroke(); g.fillStyle = '#333'; for (const tx of [-17, -12]) g.fillRect(tx, -10, 2.5, 8); }
+    g.fillStyle = shade(c, -25); for (const lx of [-7, -3, 3, 7]) { const sw2 = (lx === -7 || lx === 3 ? sw : -sw) * 2; rr(lx - 1.5 + sw2, -1, 3, 8, 1.5); g.fill(); }
+    g.fillStyle = c; g.beginPath(); g.ellipse(0, -5, 11 * big, 7 * big, 0, 0, 7); g.fill(); g.stroke();
+    g.strokeStyle = c; g.lineWidth = 2.5;
+    if (k === 'dog') { g.beginPath(); g.moveTo(-10, -7); g.quadraticCurveTo(-15, -14 + sw * 2, -13, -17); g.stroke(); }
+    if (k === 'cat') { g.beginPath(); g.moveTo(-10, -6); g.quadraticCurveTo(-18, -10, -14, -20); g.stroke(); }
+    if (k === 'pig') { g.strokeStyle = shade(c, -20); g.lineWidth = 1.5; g.beginPath(); g.arc(-12, -8, 2.5, 0, 5); g.stroke(); }
+    g.strokeStyle = OL; g.lineWidth = 1.3;
+    g.fillStyle = c; g.beginPath(); g.arc(11, -11, 6 * big, 0, 7); g.fill(); g.stroke();
+    if (k === 'cat' || k === 'pig' || k === 'raccoon' || k === 'squirrel') for (const ex of [7, 12]) { g.fillStyle = c; g.beginPath(); g.moveTo(ex - 2.5, -15); g.lineTo(ex, -20); g.lineTo(ex + 2.5, -15); g.closePath(); g.fill(); g.stroke(); }
+    if (k === 'dog') { g.fillStyle = shade(c, -35); g.beginPath(); g.ellipse(8, -10, 2.5, 5, 0.3, 0, 7); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(16.5, -10, 1.8, 0, 7); g.fill(); }
+    if (k === 'goat') { g.strokeStyle = '#8a8070'; g.lineWidth = 2; g.beginPath(); g.moveTo(9, -16); g.quadraticCurveTo(5, -22, 2, -19); g.moveTo(12, -16); g.quadraticCurveTo(9, -23, 6, -21); g.stroke(); g.strokeStyle = OL; g.lineWidth = 1.3; g.fillStyle = '#ddd5c5'; g.beginPath(); g.moveTo(13, -6); g.lineTo(15, 0); g.lineTo(16, -6); g.fill(); }
+    if (k === 'pig') { g.fillStyle = shade(c, -15); g.beginPath(); g.ellipse(16.5, -10, 2.5, 3, 0, 0, 7); g.fill(); g.fillStyle = '#7a3a4a'; g.fillRect(16, -11, 1, 1.5); g.fillRect(17, -9.5, 1, 1.5); }
+    if (k === 'raccoon') { g.fillStyle = '#222'; g.fillRect(8, -13, 9, 3); }
+    if (k === 'cat') { g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(15, -9); g.lineTo(20, -10); g.moveTo(15, -8); g.lineTo(20, -7); g.stroke(); }
+    eye(13, -12.5);
+  }
+  g.restore();
+}
 function drawPerson(e, L, o = {}) {
   const R0 = o.r || R, belly = L.belly || 1, rag = e.rag, z = rag ? rag.z : 0;
   const moving = Math.hypot(e.vx || 0, e.vy || 0) > 5 || o.forceWalk, sw = moving ? Math.sin(e.walk || 0) : 0;
@@ -1511,7 +1895,7 @@ function drawPerson(e, L, o = {}) {
   g.fillStyle = L.skin; g.beginPath(); g.arc(0, hy, hr, 0, 7); g.fill();
   if (!lowFX()) { g.fillStyle = shadeGrad('h' + R0, () => { const q = g.createRadialGradient(-hr * 0.35, hy - hr * 0.35, hr * 0.1, 0, hy, hr * 1.1); q.addColorStop(0, 'rgba(255,255,255,0.25)'); q.addColorStop(1, 'rgba(0,0,0,0.18)'); return q; }); g.fill(); }
   g.stroke();
-  if (!L.hat || L.hat === 'visor') { g.fillStyle = L.hair; g.beginPath(); g.arc(0, hy - hr * 0.1, hr * 0.98, Math.PI * 1.05, Math.PI * 1.95); g.fill(); }
+  if (!L.hat || L.hat === 'visor' || HAIR_HATS.has(L.hat)) { g.fillStyle = L.hair; g.beginPath(); g.arc(0, hy - hr * 0.1, hr * 0.98, Math.PI * 1.05, Math.PI * 1.95); g.fill(); }
   const vx = e.vx || 0, vy = e.vy || 0, vm = Math.hypot(vx, vy);
   const lx = vm > 5 ? vx / vm * hr * 0.18 : d * hr * 0.12, ly = vm > 5 ? vy / vm * hr * 0.14 : 0;
   const blink = ((G.clock + (e.seed || 0) * 3.1) % 4.3) < 0.12, big = o.wide ? 1.4 : 1;
@@ -1547,13 +1931,18 @@ function drawPerson(e, L, o = {}) {
     g.fillStyle = L.hatCol; rr(-hr * 1.05, hy - hr * 1.15, hr * 2.1, hr * 0.85, 5); g.fill(); g.stroke();
     g.fillStyle = '#111'; g.beginPath(); g.ellipse(d * hr * 0.5, hy - hr * 0.3, hr * 0.85, hr * 0.2, 0, 0, 7); g.fill();
     g.fillStyle = '#e8c547'; g.beginPath(); g.arc(0, hy - hr * 0.75, 3.5, 0, 7); g.fill();
-  }
+  } else if (FANCY_HATS.has(L.hat)) drawFancyHat(L, hy, hr, d);
   if (o.carry) drawItem(o.carry, d * R0 * 0.95 * belly, R0 * 0.35, d);
   g.restore();
 }
 function drawItem(kind, x, y, d) {
   g.save(); g.translate(x, y); g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 1.2;
-  if (kind === 'plank') { g.rotate(-0.25 * d); g.fillStyle = '#d9b27a'; g.fillRect(-30, -3, 60, 6); g.strokeRect(-30, -3, 60, 6); g.fillRect(-30, 3, 60, 5); g.strokeRect(-30, 3, 60, 5); }
+  if (kind === 'pipe') {           // white PVC: end hubs, a shadow underneath, the blue print line
+    g.rotate(-0.25 * d); g.fillStyle = '#eef1f2'; rr(-33, -3.5, 66, 7, 3.5); g.fill(); g.stroke();
+    g.fillStyle = 'rgba(0,0,0,0.13)'; g.fillRect(-28, 1, 56, 2.5); g.fillStyle = '#c3ccd1'; g.fillRect(-33, -4.5, 6, 9); g.strokeRect(-33, -4.5, 6, 9); g.fillRect(27, -4.5, 6, 9); g.strokeRect(27, -4.5, 6, 9);
+    g.fillStyle = '#2d5fa8'; g.fillRect(-12, -2, 24, 1.4);
+  }
+  else if (kind === 'plank') { g.rotate(-0.25 * d); g.fillStyle = '#d9b27a'; g.fillRect(-30, -3, 60, 6); g.strokeRect(-30, -3, 60, 6); g.fillRect(-30, 3, 60, 5); g.strokeRect(-30, 3, 60, 5); }
   else if (kind === 'can') { g.fillStyle = '#ddd'; g.fillRect(-7, -9, 14, 16); g.strokeRect(-7, -9, 14, 16); g.fillStyle = '#2e86de'; g.fillRect(-7, -4, 14, 7); g.beginPath(); g.arc(0, -11, 5, Math.PI, 0); g.stroke(); }
   else if (kind === 'bag') { g.fillStyle = '#c8a24a'; rr(-8, -10, 16, 20, 4); g.fill(); g.stroke(); g.fillStyle = '#196f3d'; g.fillRect(-5, -3, 10, 6); }
   else if (kind === 'gnome') { g.fillStyle = '#c0392b'; g.beginPath(); g.moveTo(-6, 0); g.lineTo(0, -14); g.lineTo(6, 0); g.fill(); g.stroke(); g.fillStyle = '#f1c27d'; g.beginPath(); g.arc(0, 3, 5, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 7, 4, 0, Math.PI); g.fill(); }
@@ -1561,16 +1950,16 @@ function drawItem(kind, x, y, d) {
   else { g.fillStyle = '#c9a26a'; g.fillRect(-9, -8, 18, 15); g.strokeRect(-9, -8, 18, 15); g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(-9, -3, 18, 3); }
   g.restore();
 }
-function drawCart(b) {
-  const d = b.dir || 1;
+function drawCart(b, CS = shopItem(META.eq.cart) || shopItem('cart:steel')) {
+  const d = b.dir || 1, wr = CS.wheel;
   g.save(); g.translate(b.x + d * R * 1.75, b.y + 8);
   g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse(2, 14, 17, 5, 0, 0, 7); g.fill();
-  g.fillStyle = '#222'; for (const [wx, wy] of [[-11, 13], [11, 13], [-12, 1], [12, 1]]) { g.beginPath(); g.arc(wx, wy, 2.4, 0, 7); g.fill(); }
-  g.fillStyle = 'rgba(205,215,220,0.35)'; g.strokeStyle = '#7c878d'; g.lineWidth = 1.6;
+  g.fillStyle = '#222'; for (const [wx, wy] of [[-11, 13], [11, 13], [-12, 1], [12, 1]]) { g.beginPath(); g.arc(wx, wy, wr, 0, 7); g.fill(); }
+  g.fillStyle = CS.fill === 'camo' ? pattern('camo', '') : CS.fill; g.strokeStyle = CS.stroke; g.lineWidth = 1.6;
   g.beginPath(); g.moveTo(-15, -12); g.lineTo(15, -12); g.lineTo(12, 10); g.lineTo(-12, 10); g.closePath(); g.fill(); g.stroke();
   g.lineWidth = 0.8; for (let k = -9; k <= 9; k += 6) { g.beginPath(); g.moveTo(k, -12); g.lineTo(k * 0.85, 10); g.stroke(); }
   g.beginPath(); g.moveTo(-14, -2); g.lineTo(14, -2); g.stroke();
-  g.strokeStyle = '#c0392b'; g.lineWidth = 3; g.beginPath(); g.moveTo(-d * 15, -12); g.lineTo(-d * 20, -16); g.stroke();
+  g.strokeStyle = CS.handle; g.lineWidth = 3; g.beginPath(); g.moveTo(-d * 15, -12); g.lineTo(-d * 20, -16); g.stroke();
   if (b.has) { g.save(); g.translate(0, -4); g.scale(0.8, 0.8); drawItem(b.kind, 0, 0, 1); g.restore(); }
   g.restore();
 }
@@ -1581,8 +1970,8 @@ function drawBucko(b) {
   drawPerson(b, b.look, { carry: b.has && !((b.state === 'shop' || b.state === 'wait') && t !== 'contractor') ? b.kind : t === 'coupon' ? 'coupons' : null, wide: t === 'squirrely' || runner,
     jitter: t === 'squirrely' && b.state !== 'chain' && !b.rag, alpha, hop: b.happy && b.state === 'leaving' ? Math.abs(Math.sin(b.out * 13)) * 12 : 0, forceWalk: b.state === 'leaving', angry: runner || (b.state === 'wait' && b.patience < 12 && !b.scanned) });
   if (b.rag || b.state === 'leaving') return;
-  const inLine = b.state === 'chain', near = dist(b, G.player) < 150, named = inLine || near || runner;
-  {
+  const inLine = b.state === 'chain', near = dist(b, G.player) < 150, named = SET.names === 'always' || inLine || near || runner;
+  if (SET.names !== 'off' || runner || inLine) {
     const label = named ? b.name + ' ' + b.surname : 'Bucko', fs2 = named ? 13 : 11;
     g.font = `700 ${fs2}px ${FB}`; const w = g.measureText(label).width + 12, ty = b.y - R * 2.75;
     g.globalAlpha = named ? 1 : 0.7;
@@ -1835,6 +2224,8 @@ function drawParts() {
   for (const q of G.parts) {
     const k = q.t / q.life;
     if (q.kind === 'spark') { g.fillStyle = q.c; g.globalAlpha = 1 - k * k; g.fillRect(q.x - q.s / 2, q.y - q.s / 2, q.s, q.s); }
+    else if (q.kind === 'glyph') { g.globalAlpha = 1 - k; g.fillStyle = q.c; g.font = `900 ${q.s}px ${FB}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(q.g, q.x, q.y); }
+    else if (q.kind === 'ring') { g.globalAlpha = (1 - k) * 0.8; g.strokeStyle = q.c; g.lineWidth = 1.5; g.beginPath(); g.arc(q.x, q.y, 3 + k * 5, 0, 7); g.stroke(); }
     else if (q.kind === 'fire') { g.fillStyle = q.c; g.globalAlpha = (1 - k) * 0.9; g.beginPath(); g.arc(q.x, q.y, q.s * (1 - k * 0.5), 0, 7); g.fill(); }
     else { g.fillStyle = q.c; g.globalAlpha = (1 - k) * 0.5; g.beginPath(); g.arc(q.x, q.y, q.s * (0.6 + k), 0, 7); g.fill(); }
   }
@@ -1856,7 +2247,38 @@ function pillBg(x, w) { g.fillStyle = 'rgba(0,0,0,0.22)'; rr(x, 7, w, 44, 10); g
 function pill(x, w, label, value, col = '#fff', vsize = 22) {
   pillBg(x, w); text(label, x + w / 2, 18, 10, '#cfe8d6', 'center', '800', null, FB); text(value, x + w / 2, 37, vsize, col);
 }
+function drawHUDCompact() {
+  { const r = rankOf(CAREER.xp), lo = RANKS[r][0], hi = RANKS[r + 1] ? RANKS[r + 1][0] : lo + 1, k = RANKS[r + 1] ? clamp((CAREER.xp - lo) / (hi - lo), 0, 1) : 1;
+    g.fillStyle = '#7a6a1a'; g.fillRect(0, 55, 1000, 5); g.fillStyle = '#ffe14d'; g.fillRect(0, 55, 1000 * k, 5); }
+  const box = (x, w) => { g.fillStyle = 'rgba(0,0,0,0.22)'; rr(x, 5, w, 46, 9); g.fill(); };
+  const m = Math.round(clamp(1 - G.timer / (G.dayLen || 1), 0, 1) * 180), low = G.timer < 15 && G.state === 'play';
+  box(8, 150); text(`DAY ${G.day}`, 83, 18, 12, '#cfe8d6', 'center', '900', null, FB);
+  text(`${6 + Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')} PM`, 83, 36, 19, low ? '#ff6b6b' : '#fff');
+  g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(20, 46, 126, 3); g.fillStyle = low ? '#ff6b6b' : '#ffe14d'; g.fillRect(20, 46, 126 * m / 180, 3);
+  box(166, 170); text(G.streak >= 2 ? `WALLET · x${(1 + 0.25 * Math.min(G.streak - 1, 8)).toFixed(2).replace(/\.?0+$/, '')}` : 'WALLET', 251, 18, 12, G.streak >= 2 ? '#7dff7d' : '#cfe8d6', 'center', '900', null, FB);
+  { const k = 1 + G.walletPulse * 0.18; g.save(); g.translate(251, 36); g.scale(k, k); text(money(G.showCash), 0, 0, 21, '#ffe14d'); g.restore(); }
+  box(344, 96); text('LINE', 392, 18, 12, '#cfe8d6', 'center', '900', null, FB);
+  text(`${G.player.chain.length}/${maxLine()}`, 392, 36, 20, G.player.chain.length >= maxLine() ? '#ffcc00' : '#fff');
+  const T = threat(); box(448, 190);
+  for (let i = 0; i < MAX_STRIKES; i++) {
+    const on = i < G.strikes; g.fillStyle = on ? '#d63030' : 'rgba(0,0,0,0.3)'; g.beginPath(); g.arc(493 + i * 20, 19, 7, 0, 7); g.fill();
+    g.strokeStyle = on ? '#ffe14d' : 'rgba(255,255,255,0.35)'; g.lineWidth = 1.5; g.stroke();
+  }
+  fitText((G.tickets || 0) % 2 === 1 ? 'next mistake = STRIKE' : `bombers: ${T.ac}`, 543, 39, 176, 13, (G.tickets || 0) % 2 === 1 || G.strikes >= MAX_STRIKES - 1 ? '#ff9a8a' : '#ffd0c0', 'center', '800', FB);
+  const q = G.quest; box(646, 284);
+  if (q) {
+    fitText(q.text + (q.kind === 'timed' ? `  (${Math.ceil(q.time)}s)` : ''), 658, 19, 260, 14, '#fff', 'left', '800', FB);
+    const k = clamp(q.have / q.need, 0, 1);
+    g.fillStyle = 'rgba(0,0,0,0.35)'; rr(658, 32, 150, 11, 5); g.fill(); g.fillStyle = '#7dff7d'; rr(658, 32, 150 * k, 11, 5); g.fill();
+    text(`${Math.min(q.have, q.need)}/${q.need}  ·  ${money(q.reward)}`, 818, 38, 12, '#ffe14d', 'left', '900', null, FB);
+  }
+  const pb = { x: 940, y: 5, w: 52, h: 46 };
+  g.fillStyle = 'rgba(0,0,0,0.25)'; rr(pb.x, pb.y, pb.w, pb.h, 9); g.fill();
+  g.fillStyle = '#fff'; g.fillRect(pb.x + 17, pb.y + 13, 6, 20); g.fillRect(pb.x + 29, pb.y + 13, 6, 20);
+  if (G.state === 'play') hit(pb.x, pb.y, pb.w, pb.h, pause);
+}
 function drawHUD() {
+  if (compactHUD) { drawHUDCompact(); return; }
   const bg = g.createLinearGradient(0, 0, 0, 60); bg.addColorStop(0, '#0f9142'); bg.addColorStop(1, '#076b2f');
   g.fillStyle = bg; g.fillRect(0, 0, W, 60);
   { const r = rankOf(CAREER.xp), lo = RANKS[r][0], hi = RANKS[r + 1] ? RANKS[r + 1][0] : lo + 1, k = RANKS[r + 1] ? clamp((CAREER.xp - lo) / (hi - lo), 0, 1) : 1;
@@ -1882,7 +2304,7 @@ function drawHUD() {
     g.strokeStyle = on ? '#ffe14d' : 'rgba(255,255,255,0.3)'; g.lineWidth = 1.5; g.stroke();
   }
   if ((G.tickets || 0) % 2 === 1) text('CITATION: next = strike', 784, 42, 9, '#ffd86b', 'center', '800', null, FB);
-  else if (G.strikes > 0) text(`clean exits ${G.clean || 0}/5`, 784, 42, 9, '#9dffb0', 'center', '800', null, FB);
+  else if (G.strikes > 0) text(`clean exits ${G.clean || 0}/${cleanNeed()}`, 784, 42, 9, '#9dffb0', 'center', '800', null, FB);
   else text('no strikes', 784, 42, 9, '#cfe8d6', 'center', '800', null, FB);
   text('BUCKO BOMBERS:', 846, 18, 10, '#ffb0a0', 'left', '800', null, FB);
   const acW = fitText(T.ac, 846, 36, 80, 18, G.strikes >= MAX_STRIKES - 1 ? '#ff6b6b' : '#fff');
@@ -1945,6 +2367,7 @@ function drawPA() {
   g.globalAlpha = 1;
 }
 function drawHint() {
+  if (!SET.hints) return;
   if (G.state !== 'play') return;
   const o = objective(); if (!o) return;
   if (G.day > 2 && !o.warn) return;
@@ -1954,7 +2377,15 @@ function drawHint() {
   text(s, 800, 18, 17, o.warn ? '#fff' : '#ffe14d', 'center', '800', null, FB);
 }
 function drawMinimap() {
-  const mw = clamp(cw * 0.2, 120, 220), k = mw / W, mh = (H - 60) * k, x0 = 8, y0 = hudH + 8;
+  if (SET.map === 'off') return;
+  const x0 = 8, y0 = hudH + 8;
+  if (SET.map === 'hidden') {                       // collapsed: a little tab you tap to open it again
+    g.fillStyle = 'rgba(8,40,22,0.85)'; rr(x0, y0, 70, 32, 8); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 2; g.stroke();
+    text('MAP +', x0 + 35, y0 + 17, 13, '#ffe14d', 'center', '900');
+    hit(x0, y0, 70, 32, () => { SET.map = 'show'; saveSet(); }); return;
+  }
+  const mw = clamp(cw * [0.14, 0.2, 0.28][SET.mapSize], 100, [160, 220, 300][SET.mapSize]), k = mw / W, mh = (H - 60) * k;
+  hit(x0 + mw - 30, y0, 30, 28, () => { SET.map = 'hidden'; saveSet(); });
   g.save(); g.translate(x0, y0); g.globalAlpha = 0.9;
   g.fillStyle = '#d8dbd3'; rr(0, 0, mw, mh, 6); g.fill(); g.strokeStyle = '#0a5a2a'; g.lineWidth = 3; g.stroke();
   g.beginPath(); g.rect(0, 0, mw, mh); g.clip();
@@ -1975,18 +2406,21 @@ function drawMinimap() {
   const vw = cw / cam.s, vh = (ch - hudH) / cam.s;
   g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 8; g.strokeRect(cam.x - vw / 2, cam.y - vh / 2, vw, vh);
   g.restore();
+  g.fillStyle = 'rgba(8,40,22,0.85)'; rr(x0 + mw - 28, y0 + 3, 25, 22, 6); g.fill();     // the collapse button
+  g.strokeStyle = '#ffe14d'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(x0 + mw - 21, y0 + 14); g.lineTo(x0 + mw - 10, y0 + 14); g.stroke();
 }
 function drawControls() {
   if (G.state !== 'play') return;
   const B = bigBtns();
-  if (touchy()) {                              // fixed stick, always shown, knob can't leave the ring
-    const J = joyBase(), on = joy.id !== null;
-    g.fillStyle = on ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.1)'; g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 3;
-    g.beginPath(); g.arc(J.x, J.y, J.R, 0, 7); g.fill(); g.stroke();
-    let kx = 0, ky = 0;
-    if (on) { const dx = joy.x - J.x, dy = joy.y - J.y, m = Math.hypot(dx, dy), k = m > J.R ? J.R / m : 1; kx = dx * k; ky = dy * k; }
-    g.fillStyle = on ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)'; g.beginPath(); g.arc(J.x + kx, J.y + ky, J.R * 0.42, 0, 7); g.fill();
-    if (!on && G.day === 1 && G.timer > G.dayLen - 20) { g.fillStyle = 'rgba(255,255,255,0.85)'; g.font = `700 14px ${FB}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('drag here to walk', J.x, J.y - J.R - 16); }
+  if (touchy() || joy.touch) {                 // only there while your thumb is down, then it fades out
+    const R = joyR(), down = joy.id !== null, a = down ? 1 : clamp(1 - (performance.now() - (joy.upAt || -1e9)) / 350, 0, 1);
+    if (a > 0) {
+      let kx = 0, ky = 0;
+      if (down) { const dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), k = m > R ? R / m : 1; kx = dx * k; ky = dy * k; }
+      g.globalAlpha = a; g.fillStyle = 'rgba(255,255,255,0.14)'; g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 3;
+      g.beginPath(); g.arc(joy.ox, joy.oy, R, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.arc(joy.ox + kx, joy.oy + ky, R * 0.42, 0, 7); g.fill(); g.globalAlpha = 1;
+    } else if (SET.hints && G.day === 1 && G.timer > G.dayLen - 25) text('Touch anywhere and drag to walk  ·  double-tap and hold to dash', cw / 2, ch - 100, 15, '#fff', 'center', '800', 'rgba(0,0,0,0.6)', FB);
   } else if (joy.id !== null) {
     g.fillStyle = 'rgba(255,255,255,0.12)'; g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 3;
     g.beginPath(); g.arc(joy.ox, joy.oy, 64, 0, 7); g.fill(); g.stroke();
@@ -1994,23 +2428,17 @@ function drawControls() {
     g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.arc(joy.ox + dx * k, joy.oy + dy * k, 28, 0, 7); g.fill();
   }
   const on = G.player.chain.length > 0;
-  if (touchy() || on) {
+  if (on) {                                    // LET GO only shows up when you're leading someone
     g.fillStyle = on ? 'rgba(214,48,48,0.88)' : 'rgba(80,80,80,0.5)'; g.beginPath(); g.arc(B.go.x, B.go.y, B.r, 0, 7); g.fill();
     g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 3; g.stroke();
     g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${Math.round(B.r * 0.3)}px ${FD}`;
     g.fillText('LET GO', B.go.x, B.go.y - B.r * 0.1); g.font = `700 ${Math.round(B.r * 0.2)}px ${FB}`; g.fillText(touchy() ? 'last Bucko' : '(SPACE)', B.go.x, B.go.y + B.r * 0.25);
   }
-  if (touchy()) {
-    const r = B.r * 0.75, ready = G.dashCD <= 0;
-    g.fillStyle = ready ? 'rgba(40,90,160,0.88)' : 'rgba(80,80,80,0.55)'; g.beginPath(); g.arc(B.dash.x, B.dash.y, r, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 3; g.stroke();
-    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${Math.round(r * 0.36)}px ${FD}`; g.fillText('DASH', B.dash.x, B.dash.y);
-  }
   if (G.perks.whistle) {
     const r = B.r * 0.8, ready = G.whistleCD <= 0;
     g.fillStyle = ready ? 'rgba(10,122,54,0.9)' : 'rgba(80,80,80,0.6)'; g.beginPath(); g.arc(B.wh.x, B.wh.y, r, 0, 7); g.fill();
     g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 3; g.stroke();
-    if (!ready) { g.strokeStyle = '#ffe14d'; g.lineWidth = 4; g.beginPath(); g.arc(B.wh.x, B.wh.y, r - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - G.whistleCD / 16)); g.stroke(); }
+    if (!ready) { g.strokeStyle = '#ffe14d'; g.lineWidth = 4; g.beginPath(); g.arc(B.wh.x, B.wh.y, r - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - G.whistleCD / whistleCDMax())); g.stroke(); }
     g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${Math.round(r * 0.28)}px ${FD}`; g.fillText('WHISTLE', B.wh.x, B.wh.y - 2);
     g.font = `700 ${Math.round(r * 0.22)}px ${FB}`; g.fillText(touchy() ? 'call Buckos' : '(Q)', B.wh.x, B.wh.y + r * 0.35);
   }
@@ -2054,10 +2482,97 @@ function drawCar(x, y, col, kind) {        // a parked car seen from above, nose
 const LOT_CARS = [   // [stall column, row, colour, kind]: stalls are 100 wide, column c spans 40+100c .. 140+100c
   [0, 0, '#8a1a1a', 'truck'], [2, 0, '#1f3f6f', 'car'], [1, 1, '#d8d8d0', 'truck'], [-1, 1, '#4a2d6b', 'car'],
   [13, 0, '#2d5a27', 'truck'], [15, 0, '#c7a02a', 'truck'], [14, 1, '#6a6a6a', 'car'], [16, 1, '#7a3a1a', 'truck']];
+
+/* LOT decorations: drawn outside the store on the title screen. Each draws at its own base point (0,0 = where it
+   stands); 'layer' says when in the title painting it goes, 'ps' is its scale in a store-card preview. Nothing blinks. */
+const LOT = {
+  lights: { layer: 'front', x: 0, y: 0, ps: 0.07, draw(t, pv) {
+    const w = pv ? 1240 : 1240, x0 = pv ? -620 : 180, y0 = pv ? -60 : 112, cols = ['#ff6a6a', '#ffe14d', '#7dff7d', '#6ad1ff'];
+    g.strokeStyle = '#222'; g.lineWidth = pv ? 6 : 2; g.beginPath(); for (let x = 0; x <= w; x += 20) g.lineTo(x0 + x, y0 + 6 + Math.sin(x / 20 * Math.PI) * 3); g.stroke();
+    for (let x = 10, i = 0; x < w; x += 20, i++) { g.fillStyle = cols[i % 4]; g.beginPath(); g.arc(x0 + x, y0 + 12, pv ? 9 : 4, 0, 7); g.fill(); } } },
+  planters: { layer: 'front', x: 0, y: 0, ps: 1.2, draw(t, pv) {
+    const pot = (x, y) => { g.fillStyle = '#8a4a2a'; g.beginPath(); g.moveTo(x - 14, y - 22); g.lineTo(x + 14, y - 22); g.lineTo(x + 10, y); g.lineTo(x - 10, y); g.fill();
+      g.fillStyle = '#2f7a2f'; g.beginPath(); g.arc(x, y - 28, 13, 0, 7); g.fill(); for (const [dx, dy, c] of [[-6, -32, '#ff6a9a'], [5, -34, '#ffe14d'], [0, -24, '#c8a0ff']]) { g.fillStyle = c; g.beginPath(); g.arc(x + dx, y + dy, 3.5, 0, 7); g.fill(); } };
+    if (pv) pot(0, 0); else for (const x of [496, 664, 936, 1104]) pot(x, 446); } },
+  banner: { layer: 'front', x: 330, y: 168, ps: 0.45, draw(t) {
+    g.strokeStyle = '#333'; g.lineWidth = 2; g.beginPath(); g.moveTo(-120, -20); g.lineTo(-110, 0); g.moveTo(120, -20); g.lineTo(110, 0); g.stroke();
+    g.fillStyle = '#c0392b'; g.beginPath(); g.moveTo(-110, 0); g.quadraticCurveTo(0, 10, 110, 0); g.lineTo(110, 34); g.quadraticCurveTo(0, 44, -110, 34); g.closePath(); g.fill();
+    text('GRAND OPENING', 0, 20, 20, '#ffe14d', 'center', '900'); } },
+  neon: { layer: 'front', x: 1340, y: 190, ps: 0.9, draw(t) {
+    g.fillStyle = '#111'; rr(-56, -26, 112, 52, 10); g.fill(); g.strokeStyle = '#ff4fa0'; g.lineWidth = 3; rr(-50, -20, 100, 40, 8); g.stroke();
+    g.shadowColor = '#ff4fa0'; g.shadowBlur = 12; text('OPEN', 0, 1, 26, '#ff7fbf', 'center', '900'); g.shadowBlur = 0; } },
+  hotdog: { layer: 'walk', x: 1300, y: 486, ps: 0.8, draw(t) {
+    for (const s of [-1, 1]) { g.fillStyle = '#222'; g.beginPath(); g.arc(s * 24, -6, 7, 0, 7); g.fill(); }
+    g.fillStyle = '#c0392b'; rr(-36, -46, 72, 38, 6); g.fill(); g.fillStyle = '#fff'; g.fillRect(-36, -34, 72, 8); text('HOT DOGS $1', 0, -30, 9, '#c0392b', 'center', '900', null, FB);
+    g.strokeStyle = '#888'; g.lineWidth = 3; g.beginPath(); g.moveTo(0, -46); g.lineTo(0, -88); g.stroke();
+    for (let k = 0; k < 6; k++) { g.fillStyle = k % 2 ? '#ffe14d' : '#c0392b'; g.beginPath(); g.moveTo(0, -100); g.arc(0, -86, 46, Math.PI + k * Math.PI / 6, Math.PI + (k + 1) * Math.PI / 6); g.fill(); } } },
+  flag: { layer: 'front', x: 1550, y: 446, ps: 0.32, draw(t) {
+    g.fillStyle = '#c9ccd0'; g.fillRect(-3, -300, 6, 300); g.fillStyle = '#e8c547'; g.beginPath(); g.arc(0, -302, 6, 0, 7); g.fill();
+    g.fillStyle = '#0a7a36'; g.beginPath(); g.moveTo(3, -290);
+    for (let k = 0; k <= 10; k++) g.lineTo(3 + k * 9, -290 + Math.sin(t * 3 + k * 0.7) * 5 * k / 10);
+    for (let k = 10; k >= 0; k--) g.lineTo(3 + k * 9, -236 + Math.sin(t * 3 + k * 0.7) * 5 * k / 10); g.closePath(); g.fill();
+    text('B', 45, -262 + Math.sin(t * 3 + 3.5) * 2.5, 26, '#ffe14d', 'center', '900'); } },
+  tubeman: { layer: 'front', x: 50, y: 446, ps: 0.55, draw(t) {
+    g.fillStyle = '#555'; g.fillRect(-16, -14, 32, 14);
+    let x = 0, y = -14; const pts = [];
+    for (let k = 0; k < 9; k++) { const a = Math.sin(t * 4 + k * 0.6) * 0.25 * (k / 9); x += Math.sin(a) * 16; y -= Math.cos(a) * 16; pts.push([x, y]); }
+    g.strokeStyle = '#ff7a1a'; g.lineCap = 'round'; g.lineWidth = 20; g.beginPath(); g.moveTo(0, -14); for (const [px, py] of pts) g.lineTo(px, py); g.stroke();
+    const [ax, ay] = pts[5]; g.lineWidth = 9; for (const s of [-1, 1]) { const w = Math.sin(t * 6 + s) * 0.9; g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax + s * 26 * Math.cos(w), ay - 26 * Math.abs(Math.sin(w)) - 6); g.stroke(); }
+    g.lineCap = 'butt'; const [hx, hy] = pts[8]; g.fillStyle = '#fff'; for (const s of [-1, 1]) { g.beginPath(); g.arc(hx + s * 4, hy - 2, 3, 0, 7); g.fill(); }
+    g.strokeStyle = '#222'; g.lineWidth = 2; g.beginPath(); g.arc(hx, hy + 2, 4, 0.2, Math.PI - 0.2); g.stroke(); } },
+  gnome: { layer: 'front', x: 158, y: 446, ps: 0.6, draw(t) {
+    g.fillStyle = '#2a1a10'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(s * 12, -4, 12, 6, 0, 0, 7); g.fill(); }
+    g.fillStyle = '#2d5fa8'; rr(-24, -60, 48, 56, 12); g.fill(); g.fillStyle = '#f1c27d'; g.beginPath(); g.arc(0, -74, 17, 0, 7); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -64, 17, 0.1, Math.PI - 0.1); g.fill(); g.fillStyle = '#e09a7a'; g.beginPath(); g.arc(0, -72, 5, 0, 7); g.fill();
+    g.fillStyle = '#c0392b'; g.beginPath(); g.moveTo(-20, -82); g.lineTo(4, -140); g.lineTo(20, -82); g.closePath(); g.fill();
+    g.fillStyle = '#111'; for (const s of [-1, 1]) { g.beginPath(); g.arc(s * 6, -78, 2, 0, 7); g.fill(); } } },
+  duck: { layer: 'front', x: 1010, y: 112, ps: 0.8, draw(t) {
+    const bob = Math.sin(t * 1.5) * 2; g.fillStyle = '#ffd23a';
+    g.beginPath(); g.ellipse(0, -24 + bob, 40, 24, 0, 0, 7); g.fill(); g.beginPath(); g.arc(24, -56 + bob, 18, 0, 7); g.fill();
+    g.fillStyle = '#ff8a1a'; g.beginPath(); g.ellipse(46, -52 + bob, 10, 5, 0, 0, 7); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(30, -60 + bob, 3, 0, 7); g.fill();
+    g.fillStyle = '#e8b81a'; g.beginPath(); g.ellipse(-6, -26 + bob, 18, 10, -0.3, 0, 7); g.fill(); } },
+  billboard: { layer: 'front', x: 380, y: 112, ps: 0.42, draw(t) {
+    g.fillStyle = '#555'; g.fillRect(-80, -40, 8, 40); g.fillRect(72, -40, 8, 40);
+    g.fillStyle = '#fff'; rr(-115, -112, 230, 76, 6); g.fill(); g.strokeStyle = '#0a7a36'; g.lineWidth = 5; g.stroke();
+    text('SAVE 11%', 0, -84, 30, '#c0392b', 'center', '900'); text('on everything you already bought', 0, -55, 11, '#333', 'center', '800', null, FB); } },
+  balloon: { layer: 'sky', x: 1460, y: 150, ps: 0.55, draw(t) {
+    const by = Math.sin(t * 0.8) * 10; g.save(); g.translate(0, by);
+    g.fillStyle = '#0a7a36'; g.beginPath(); g.ellipse(0, -60, 40, 48, 0, 0, 7); g.fill();
+    g.save(); g.clip(); g.fillStyle = '#ffe14d'; for (const sx of [-28, -4, 20]) g.fillRect(sx, -110, 10, 100); g.restore();
+    g.strokeStyle = '#5a3a1a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-14, -16); g.lineTo(-8, 0); g.moveTo(14, -16); g.lineTo(8, 0); g.stroke();
+    g.fillStyle = '#8a5a2b'; g.fillRect(-9, 0, 18, 14); g.restore(); } },
+  search: { layer: 'sky', x: 0, y: 0, ps: 0.12, draw(t, pv) {
+    const beam = (x, a) => { g.save(); g.translate(x, pv ? 0 : 330); g.rotate(a); const gr = g.createLinearGradient(0, 0, 0, -520); gr.addColorStop(0, 'rgba(255,250,220,0.32)'); gr.addColorStop(1, 'rgba(255,250,220,0)');
+      g.fillStyle = gr; g.beginPath(); g.moveTo(-10, 0); g.lineTo(-60, -520); g.lineTo(60, -520); g.lineTo(10, 0); g.fill(); g.restore(); };
+    if (pv) { beam(-60, -0.3); beam(60, 0.3); g.fillStyle = '#333'; g.fillRect(-90, 0, 180, 30); return; }
+    beam(330, Math.sin(t * 0.5) * 0.45); beam(1270, Math.sin(t * 0.5 + 2) * 0.45); } },
+  statue: { layer: 'front', x: 1450, y: 446, ps: 0.6, draw(t) {
+    g.fillStyle = '#9aa0a6'; g.fillRect(-34, -40, 68, 40); g.fillStyle = '#b8bec4'; g.fillRect(-40, -46, 80, 8);
+    text('BUCKO', 0, -18, 12, '#555', 'center', '900');
+    g.save(); g.translate(0, -84); g.scale(1.9, 1.9); drawPerson({ x: 0, y: 0, dir: 1, vx: 0, vy: 0, walk: 0, seed: 1 }, GOLD_LOOK, { r: 19 }); g.restore(); } },
+  tower: { layer: 'sky', x: 92, y: 314, ps: 0.38, draw(t) {
+    g.strokeStyle = '#6a7075'; g.lineWidth = 5; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(s * 40, 0); g.lineTo(s * 26, -120); g.stroke(); }
+    g.lineWidth = 2; g.beginPath(); g.moveTo(-36, -40); g.lineTo(30, -90); g.moveTo(36, -40); g.lineTo(-30, -90); g.stroke();
+    g.fillStyle = '#b9c2c8'; rr(-62, -200, 124, 84, 30); g.fill(); g.fillStyle = '#9aa4aa'; g.beginPath(); g.moveTo(-62, -186); g.lineTo(0, -232); g.lineTo(62, -186); g.fill();
+    text('BUCKARDS', 0, -158, 20, '#0a7a36', 'center', '900'); } },
+  blimp: { layer: 'sky', x: 0, y: 70, ps: 0.45, draw(t, pv) {
+    const x = pv ? 0 : ((t * 22) % 2600) - 500; g.save(); g.translate(x, 0);
+    g.fillStyle = '#d8dde0'; g.beginPath(); g.ellipse(0, 0, 110, 32, 0, 0, 7); g.fill(); g.fillStyle = '#0a7a36'; g.beginPath(); g.ellipse(0, 0, 110, 32, 0, -0.5, 0.5); g.ellipse(0, 0, 110, 32, 0, Math.PI - 0.5, Math.PI + 0.5); g.fill();
+    g.fillStyle = '#9aa4aa'; g.beginPath(); g.moveTo(-100, -4); g.lineTo(-128, -28); g.lineTo(-118, 0); g.lineTo(-128, 28); g.lineTo(-100, 4); g.fill();
+    g.fillStyle = '#555'; rr(-20, 28, 40, 12, 4); g.fill(); text('BUCKARDS', 0, 1, 22, '#0a7a36', 'center', '900'); g.restore(); } }
+};
+const GOLD_LOOK = { skin: '#d4af37', pants: '#b8941f', shirt: 'tee', shirtCol: '#e8c547', hat: 'trucker', hatCol: '#c9a227', belly: 1.25, hair: '#b8941f', beard: true };
+function drawLot(layer, t) {
+  for (const it of SHOP) if (it.cat === 'lot' && META.own.includes(it.id) && !META.lotHide.includes(it.id)) {
+    const L = LOT[it.raw]; if (L.layer !== layer) continue;
+    g.save(); g.translate(L.x, L.y); L.draw(t, false); g.restore();
+  }
+}
 function drawTitle(t) {
   const xl = -ox / sc - 2, xr = (cw - ox) / sc + 2, yb = (ch - oy) / sc + 2, yt = -oy / sc - 2;   // the whole screen, in title units
   const sky = g.createLinearGradient(0, 0, 0, 330); sky.addColorStop(0, '#24386b'); sky.addColorStop(0.55, '#e3854f'); sky.addColorStop(1, '#f6c47c');
   g.fillStyle = sky; g.fillRect(xl, yt, xr - xl, 330 - yt);
+  drawLot('sky', t);
   // a tree line on the horizon and grass either side of the store
   for (let x = Math.floor(xl / 46) * 46; x < xr; x += 46) {
     const hgt = 26 + ((x * 7919) % 23 + 23) % 23;
@@ -2092,10 +2607,12 @@ function drawTitle(t) {
   [230, 370, 680, 810, 1120, 1260].forEach(win); [520, 960].forEach(door);
   text('IN', 580, 311, 12, '#ffe14d'); text('OUT', 1020, 311, 12, '#ffe14d');
   g.fillStyle = '#ffe14d'; g.fillRect(180, 440, 1240, 6);
+  drawLot('front', t);
   // sidewalk + curb
   g.fillStyle = '#a9acad'; g.fillRect(xl, 446, xr - xl, 44);
   g.fillStyle = 'rgba(0,0,0,0.08)'; for (let x = Math.floor(xl / 80) * 80; x < xr; x += 80) g.fillRect(x, 446, 2, 44);
   g.fillStyle = '#d8d9d6'; g.fillRect(xl, 488, xr - xl, 6);
+  drawLot('walk', t);
   // asphalt, stall rows on both sides, and a clear drive lane down the middle for the menu
   const lot = g.createLinearGradient(0, 494, 0, yb); lot.addColorStop(0, '#40444a'); lot.addColorStop(1, '#2f3237');
   g.fillStyle = lot; g.fillRect(xl, 494, xr - xl, yb - 494);
@@ -2131,7 +2648,7 @@ function drawTitle(t) {
   button(620, 690, 360, 80, 'CLOCK IN', newGame, { size: 36 });
   const ms = loadMissions(), mDone = ms.list.filter(m => m.done).length;
   button(400, 690, 200, 38, `MISSIONS ${mDone}/3`, () => { G.showMissions = true; }, { size: 16, bg: '#1d4f7a', bg2: '#2d72ad' });
-  button(400, 734, 200, 38, `UPGRADES · ${META.bb} BB`, () => { G.showUpgrades = true; }, { size: 15, bg: '#1d4f7a', bg2: '#2d72ad' });
+  button(400, 734, 200, 38, `STORE · ${META.bb} BB`, () => { G.showUpgrades = true; }, { size: 16, bg: '#8a4a00', bg2: '#c26a00' });
   button(1000, 690, 200, 38, 'BADGES + DEX', () => { G.showBadges = true; }, { size: 16, bg: '#5a4500', bg2: '#8a6d10' });
   { g.fillStyle = 'rgba(8,22,14,0.85)'; rr(1000, 734, 200, 38, 10); g.fill(); g.strokeStyle = '#ffb08a'; g.lineWidth = 2; g.stroke();
     text(`STREAK: ${META.login.streak} DAY${META.login.streak > 1 ? 'S' : ''}`, 1100, 753, 15, '#ffb08a', 'center', '900'); }
@@ -2148,26 +2665,115 @@ function drawTitle(t) {
   g.fillStyle = 'rgba(8,22,14,0.75)'; rr(right - 112, 18, 96, 40, 10); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.3)'; g.lineWidth = 2; g.stroke();
   text(S.on ? 'SOUND ON' : 'SOUND OFF', right - 64, 39, 12, '#fff', 'center', '800', null, FB);
   hit(right - 112, 18, 96, 40, toggleSound);
+  g.fillStyle = 'rgba(8,22,14,0.75)'; rr(right - 220, 18, 100, 40, 10); g.fill(); g.strokeStyle = 'rgba(255,224,77,0.6)'; g.lineWidth = 2; g.stroke();
+  text('SETTINGS', right - 170, 39, 12, '#ffe14d', 'center', '800', null, FB);
+  hit(right - 220, 18, 100, 40, () => { G.showSettings = true; });
+  if (installEvt) {
+    g.fillStyle = 'rgba(10,122,54,0.95)'; rr(right - 348, 18, 120, 40, 10); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 2; g.stroke();
+    text('INSTALL APP', right - 288, 39, 12, '#ffe14d', 'center', '900', null, FB);
+    hit(right - 348, 18, 120, 40, () => { const e = installEvt; installEvt = null; e.prompt(); });
+  }
+  if (OFFLINE_FILE || (ON_WEB && navigator.serviceWorker && navigator.serviceWorker.controller))
+    text('works offline', right - 16, 866, 12, 'rgba(160,255,180,0.8)', 'right', '800', null, FB);
   drawUpdateBanner(800, 40);
-  if (G.showBadges) drawBadges();
-  else if (G.showUpgrades) drawUpgrades();
+  if (G.showSettings) drawSettings(() => { G.showSettings = false; });
+  else if (G.showBadges) drawBadges();
+  else if (G.showUpgrades) drawCatalog();
   else if (G.showMissions) drawMissions();
   else if (META.loginReward) drawLogin();
 }
 function overlayDim() { g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(-2000, -2000, 6000, 6000); hit(-2000, -2000, 6000, 6000, () => {}); }   // swallow clicks meant for what's underneath
-function drawUpgrades() {
-  overlayDim(); paper(300, 120, 1000, 740);
-  text('CORPORATE UPGRADES', 800, 168, 32, '#0a7a36');
-  text(`Bucko Bucks: ${META.bb}   ·   permanent - they help every run from now on`, 800, 204, 16, '#1d4f7a', 'center', '800', null, FB);
-  UPGRADES.forEach(([id, name, desc, max], i) => {
-    const l = upL(id), maxed = l >= max, cost = UP_COST[l], cx = 330 + (i % 2) * 475, cy = 226 + Math.floor(i / 2) * 140;
-    g.fillStyle = '#fff'; rr(cx, cy, 460, 126, 12); g.fill(); g.strokeStyle = '#cfd6cc'; g.lineWidth = 2; g.stroke();
-    text(name, cx + 18, cy + 26, 19, '#0a5a2a', 'left');
-    fitText(desc, cx + 18, cy + 52, 260, 14, '#444', 'left', '700', FB);
-    for (let k = 0; k < max; k++) { g.fillStyle = k < l ? '#1fae4b' : '#d5dbd3'; rr(cx + 18 + k * 30, cy + 76, 24, 10, 4); g.fill(); }
-    button(cx + 290, cy + 66, 150, 46, maxed ? 'MAXED' : `${cost} BB`, () => buyUpgrade(id), { size: 18, bg: '#1d4f7a', bg2: '#2d72ad', disabled: maxed || META.bb < cost });
+function drawCatalog() {
+  overlayDim(); paper(260, 84, 1080, 806);
+  const C = G.catUI || (G.catUI = { tab: 'hat', page: 0 });
+  text('BUCKARDS COMPANY STORE', 800, 124, 32, '#0a7a36');
+  fitText(`Bucko Bucks: ${META.bb}   ·   ${ownedCount()} things owned   ·   Shopaholic bonus: +${Math.round(shopaholic() * 100)}% cash (1% per 3 things)`, 800, 158, 1020, 16, '#1d4f7a', 'center', '800', FB);
+  SHOP_TABS.forEach(([id, label], i) => {
+    const x = 285 + i * 115.5, on = C.tab === id;
+    g.fillStyle = on ? '#0a7a36' : '#e3e8e1'; rr(x, 178, 109, 40, 10); g.fill();
+    fitText(label, x + 54.5, 198, 100, 15, on ? '#fff' : '#33503d', 'center', '900');
+    hit(x, 178, 109, 40, () => { C.tab = id; C.page = 0; });
   });
-  button(650, 790, 300, 52, 'CLOSE', () => { G.showUpgrades = false; }, { size: 20 });
+  const list = C.tab === 'upgrade' ? UPGRADES.map(u => ({ cat: 'upgrade', up: u })) : SHOP.filter(it => it.cat === C.tab);
+  const pages = Math.ceil(list.length / 12); C.page = clamp(C.page, 0, pages - 1);
+  list.slice(C.page * 12, C.page * 12 + 12).forEach((it, i) => drawShopCard(it, 285 + (i % 4) * 260, 230 + Math.floor(i / 4) * 182));
+  if (pages > 1) {
+    button(290, 794, 150, 50, '< PREV', () => C.page--, { size: 18, disabled: C.page === 0, bg: '#1d4f7a', bg2: '#2d72ad' });
+    button(1160, 794, 150, 50, 'NEXT >', () => C.page++, { size: 18, disabled: C.page >= pages - 1, bg: '#1d4f7a', bg2: '#2d72ad' });
+    text(`page ${C.page + 1} of ${pages}`, 545, 819, 15, '#555', 'center', '800', null, FB);
+  }
+  const deal = shopItem(dealId());
+  if (!pages || pages < 2) fitText(`Today's deal: ${deal.name} half off`, 450, 819, 300, 15, '#c26a00', 'center', '900', FB);
+  else fitText(`Today's deal: ${deal.name} half off`, 1055, 819, 196, 14, '#c26a00', 'center', '900', FB);
+  button(650, 794, 300, 50, 'CLOSE', () => { G.showUpgrades = false; }, { size: 20 });
+  if (G.catNote && G.clock - G.catNote.t < 3) { g.globalAlpha = clamp(3 - (G.clock - G.catNote.t), 0, 1); g.fillStyle = 'rgba(6,51,26,0.92)'; rr(500, 60, 600, 44, 12); g.fill(); text(G.catNote.text, 800, 83, 20, '#ffe14d', 'center', '900'); g.globalAlpha = 1; }
+}
+function drawShopCard(it, cx, cy) {
+  const w = 250, h = 172, bx = cx + 108, by = cy + h - 50, bw = 134, bh = 40;
+  if (it.cat === 'upgrade') {
+    const u = it.up, [id, name, desc, max] = u, raw = upRaw(id), T = upTiers(u), maxed = raw >= max * T, cost = maxed ? 0 : upCost(u, raw);
+    const tier = Math.min(Math.floor(raw / max), T - 1), l = maxed ? max : raw - tier * max, R = ['', ' II', ' III'][tier];
+    g.fillStyle = maxed ? '#eaf7ec' : '#fff'; rr(cx, cy, w, h, 12); g.fill(); g.strokeStyle = maxed ? '#1fae4b' : '#cfd6cc'; g.lineWidth = 2; g.stroke();
+    g.fillStyle = '#eef1ec'; rr(cx + 8, cy + 8, 92, h - 16, 10); g.fill();
+    g.fillStyle = maxed ? '#1fae4b' : '#2d72ad'; g.beginPath(); g.arc(cx + 54, cy + 76, 30, 0, 7); g.fill();
+    text(`${l}/${max}`, cx + 54, cy + 77, 20, '#fff', 'center', '900');
+    text(T > 1 ? 'TIER ' + ['I', 'II', 'III'][tier] : 'LEVEL', cx + 54, cy + 124, 12, '#555', 'center', '900', null, FB);
+    fitText(name + R, cx + 110, cy + 24, 132, 16, '#0a5a2a', 'left', '900');
+    wrap(desc + (tier ? ` (tier ${['', 'II', 'III'][tier]}: ${[100, 60, 40][tier]}% as strong)` : ''), 132, 12).slice(0, 3).forEach((ln, k) => text(ln, cx + 110, cy + 46 + k * 15, 12, '#555', 'left', '700', null, FB));
+    for (let k = 0; k < max; k++) { g.fillStyle = k < l ? '#1fae4b' : '#d5dbd3'; rr(bx + k * 27, by - 22, 22, 9, 4); g.fill(); }
+    button(bx, by, bw, bh, maxed ? (T > 1 ? 'ALL TIERS' : 'MAXED') : `${cost} BB`, () => buyUpgrade(id), { size: 17, bg: '#1d4f7a', bg2: '#2d72ad', disabled: maxed || META.bb < cost });
+    return;
+  }
+  const own = owned(it), eq = META.eq[it.cat] === it.id, pr = priceOf(it), deal = it.id === dealId();
+  g.fillStyle = eq ? '#eaf7ec' : '#fff'; rr(cx, cy, w, h, 12); g.fill();
+  g.strokeStyle = eq ? '#1fae4b' : deal ? '#e8a01a' : '#cfd6cc'; g.lineWidth = eq || deal ? 3 : 2; g.stroke();
+  g.fillStyle = '#eef1ec'; rr(cx + 8, cy + 8, 92, h - 16, 10); g.fill();
+  g.save(); g.beginPath(); g.rect(cx + 8, cy + 8, 92, h - 16); g.clip(); drawPreview(it, cx + 54, cy + 92); g.restore();
+  fitText(it.name, cx + 110, cy + 24, 132, 16, '#0a5a2a', 'left', '900');
+  wrap(it.desc, 132, 12).slice(0, it.cat === 'boost' ? 2 : 4).forEach((ln, k) => text(ln, cx + 110, cy + 46 + k * 15, 12, '#555', 'left', '700', null, FB));
+  if (deal && (!own || it.cat === 'boost')) { g.fillStyle = '#e8a01a'; rr(cx + w - 84, cy - 10, 78, 22, 8); g.fill(); text('HALF OFF', cx + w - 45, cy + 1, 12, '#fff', 'center', '900'); }
+  if (it.cat === 'boost') {
+    const n = META.boosts[it.id] || 0, armed = META.armed === it.id;
+    if (n) {
+      g.fillStyle = armed ? '#1fae4b' : '#dfe6dc'; rr(bx, by - 32, bw, 26, 8); g.fill();
+      fitText(armed ? `x${n}  ·  USING NEXT DAY` : `x${n}  ·  tap to use next`, bx + bw / 2, by - 19, bw - 8, 12, armed ? '#fff' : '#33503d', 'center', '900', FB);
+      hit(bx, by - 32, bw, 26, () => { META.armed = armed ? null : it.id; saveShop(); });
+    }
+    button(bx, by, bw, bh, `BUY · ${pr} BB`, () => buyItem(it), { size: 15, bg: '#1d4f7a', bg2: '#2d72ad', disabled: META.bb < pr });
+  } else if (own && it.cat === 'lot') {
+    const shown = !(META.lotHide || []).includes(it.id);
+    button(bx, by, bw, bh, shown ? 'SHOWN' : 'HIDDEN', () => { META.lotHide = shown ? [...(META.lotHide || []), it.id] : META.lotHide.filter(x => x !== it.id); store.set('lotHide', META.lotHide); },
+      { size: 16, bg: shown ? undefined : '#555c58', bg2: shown ? undefined : '#7a827d' });
+  } else if (own) {
+    const canOff = it.cat === 'pet' || it.cat === 'trail' || it.cat === 'title';
+    button(bx, by, bw, bh, eq ? (canOff ? 'TAKE OFF' : 'IN USE') : 'USE', () => { META.eq[it.cat] = eq ? null : it.id; saveShop(); },
+      { size: 16, disabled: eq && !canOff, bg: eq ? '#555c58' : undefined, bg2: eq ? '#7a827d' : undefined });
+  } else button(bx, by, bw, bh, `${pr} BB`, () => buyItem(it), { size: 17, bg: '#1d4f7a', bg2: '#2d72ad', disabled: META.bb < pr });
+}
+function drawPreview(it, x, y) {
+  const e = { x: 0, y: 0, dir: 1, vx: 0, vy: 0, walk: 0, seed: 2 };
+  if (it.cat === 'hat' || it.cat === 'vest' || it.cat === 'title') {
+    g.save(); g.translate(x, y + 14); g.scale(1.5, 1.5);
+    drawPerson(e, lookWith(it.cat === 'hat' ? it.id : META.eq.hat, it.cat === 'vest' ? it.id : META.eq.vest), { r: 19 }); g.restore();
+    if (it.cat === 'title') { g.fillStyle = 'rgba(6,51,26,0.85)'; rr(x - 44, y - 78, 88, 20, 6); g.fill(); fitText(it.name, x, y - 68, 82, 12, it.color, 'center', '900'); }
+  } else if (it.cat === 'pet') { g.save(); g.translate(x, y + 18); g.scale(2.3, 2.3); drawPet(it.id, 0, 0, 1, G.clock * 8, true); g.restore(); }
+  else if (it.cat === 'cart') { g.save(); g.translate(x, y); g.scale(2, 2); drawCart({ x: -R * 1.75, y: -8, dir: 1, has: false }, it); g.restore(); }
+  else if (it.cat === 'trail') {
+    for (let i = 0; i < 7; i++) {
+      const px = x - 36 + i * 12, py = y + Math.sin(i * 1.3 + G.clock * 2) * 12, c = it.cols[i % it.cols.length];
+      g.fillStyle = c; g.strokeStyle = c;
+      if (it.kind === 'glyph') { g.font = `900 18px ${FB}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(it.glyph, px, py); }
+      else if (it.kind === 'ring') { g.lineWidth = 2; g.beginPath(); g.arc(px, py, 5, 0, 7); g.stroke(); }
+      else if (it.kind === 'smoke') { g.beginPath(); g.arc(px, py, 6, 0, 7); g.fill(); }
+      else g.fillRect(px - 3, py - 3, 6, 6);
+    }
+  } else if (it.cat === 'lot') {
+    const L = LOT[it.raw]; g.save(); g.translate(x, y + 54); g.scale(L.ps, L.ps); L.draw(G.clock, true); g.restore();
+  } else if (it.cat === 'boost') {
+    g.fillStyle = '#c26a00'; g.beginPath(); g.arc(x, y - 10, 32, 0, 7); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 3; g.stroke();
+    fitText(it.icon, x, y - 9, 52, 20, '#fff', 'center', '900');
+    text('1 DAY', x, y + 38, 12, '#555', 'center', '900', null, FB);
+  }
 }
 function drawMissions() {
   overlayDim(); paper(400, 200, 800, 520);
@@ -2203,7 +2809,8 @@ function drawBadges() {
   paper(300, 110, 1000, 760);
   text('BADGES', 800, 168, 34, '#0a7a36');
   text(`${CAREER.badges.length}/${BADGES.length} badges  ·  Buckodex ${CAREER.dex.length}/${NAMES.length}  ·  ${CAREER.out} Buckos out all time  ·  ${CAREER.xp} XP`, 800, 204, 16, '#555', 'center', '700', null, FB);
-  BADGES.forEach(([id, name, desc], i) => {
+  const BP = Math.ceil(BADGES.length / 15); G.badgePage = clamp(G.badgePage || 0, 0, BP - 1);
+  BADGES.slice(G.badgePage * 15, G.badgePage * 15 + 15).forEach(([id, name, desc], i) => {
     const got = CAREER.badges.includes(id), cx = 330 + (i % 3) * 315, cy = 226 + Math.floor(i / 3) * 64;
     g.fillStyle = got ? '#fff8dc' : '#ecebe4'; rr(cx, cy, 300, 56, 10); g.fill(); g.strokeStyle = got ? '#d4af37' : '#cfcfc6'; g.lineWidth = 2; g.stroke();
     g.fillStyle = got ? '#d4af37' : '#b8b8b0'; g.beginPath(); g.arc(cx + 30, cy + 28, 18, 0, 7); g.fill();
@@ -2218,13 +2825,17 @@ function drawBadges() {
     g.fillStyle = got ? '#d9f2df' : '#ecebe4'; rr(cx, cy, 112, 22, 6); g.fill();
     fitText(got ? nm : '???', cx + 56, cy + 12, 104, 12, got ? '#0a5a2a' : '#aaa', 'center', '800', FB);
   });
-  button(650, 696 + 0, 300, 50, 'CLOSE', () => { G.showBadges = false; }, { size: 20 });
+  button(650, 696, 300, 50, 'CLOSE', () => { G.showBadges = false; }, { size: 20 });
+  button(330, 696, 160, 50, '< BADGES', () => G.badgePage--, { size: 16, disabled: G.badgePage === 0, bg: '#1d4f7a', bg2: '#2d72ad' });
+  button(1110, 696, 160, 50, 'BADGES >', () => G.badgePage++, { size: 16, disabled: G.badgePage >= BP - 1, bg: '#1d4f7a', bg2: '#2d72ad' });
+  text(`page ${G.badgePage + 1}/${BP}`, 570, 721, 13, '#555', 'center', '800', null, FB);
 }
 function drawUpdateBanner(x, y) {
   const u = G.update; if (!u) return;
   const label = u.state === 'ready' ? `Version ${u.version} is ready - tap to restart`
     : u.state === 'apk' ? `New app version ${u.version} - tap to download`
     : u.state === 'web' ? `Version ${u.version} is out - tap to update`
+    : u.state === 'file' ? `Version ${u.version} is out - download the new Buckards-Offline file to get it`
     : `Version ${u.version} is out - close Buckards and open it again to update`;
   g.font = `800 18px ${FB}`; const w = g.measureText(label).width + 50;
   g.fillStyle = '#ffe14d'; rr(x - w / 2, y - 22, w, 44, 22); g.fill(); g.strokeStyle = '#06331a'; g.lineWidth = 3; g.stroke();
@@ -2313,20 +2924,31 @@ function drawShop() {
   paper(250, 150, 1100, 640);
   text('EMPLOYEE PERKS CATALOG', 800, 200, 30, '#0a7a36');
   text('Wallet: ' + money2(G.cash), 800, 236, 20, '#333', 'center', '800', null, FB);
+  if (G.shopNote && G.clock - G.shopNote.t < 3) { g.globalAlpha = clamp(3 - (G.clock - G.shopNote.t), 0, 1); text(G.shopNote.text, 800, 172, 22, '#c26a00', 'center', '900'); g.globalAlpha = 1; }
+  drawUIConfetti();
   PERKS.forEach((pk, i) => {
     const cx = 290 + (i % 3) * 345, cy = 262 + Math.floor(i / 3) * 230, cw2 = 325, chh = 214;
     g.globalAlpha = clamp((G.stateT - i * 0.07) * 6, 0, 1);
     const lvl = G.perks[pk.id], maxed = lvl >= pk.max, price = maxed ? 0 : pk.price(lvl), useless = pk.id === 'bribe' && G.strikes === 0;
+    const tier = perkTier(pk, lvl), inTier = maxed ? pk.per : lvl - tier * pk.per, tiered = pk.tiers.length > 1;
     g.fillStyle = '#fff'; rr(cx, cy, cw2, chh, 12); g.fill(); g.strokeStyle = '#cfd6cc'; g.lineWidth = 2; g.stroke();
     g.fillStyle = '#e9f4ec'; rr(cx + 12, cy + 12, 70, 70, 10); g.fill(); perkIcon(pk.id, cx + 47, cy + 47);
-    text(pk.name, cx + 96, cy + 32, 17, '#0a5a2a', 'left');
-    wrap(pk.desc, 210, 15).slice(0, 2).forEach((l, k) => text(l, cx + 96, cy + 58 + k * 19, 15, '#444', 'left', '700', null, FB));
-    if (pk.max > 1 && pk.max < 99) for (let k = 0; k < pk.max; k++) { g.fillStyle = k < lvl ? '#1fae4b' : '#d5dbd3'; g.beginPath(); g.arc(cx + 30 + k * 22, cy + 112, 7, 0, 7); g.fill(); }
-    const label = maxed ? 'OWNED' : useless ? 'NO STRIKES' : money(price);
-    button(cx + 20, cy + chh - 76, cw2 - 40, 56, label, () => { if (G.cash >= price) { G.cash -= price; G.perks[pk.id]++; if (G.perks.whistle && G.perks.map && G.perks.scanner) badge('geared'); if (pk.id === 'bribe') G.strikes = Math.max(0, G.strikes - 1); S.coin(); buzz(20); } }, { size: 22, disabled: maxed || useless || G.cash < price });
+    fitText(pk.tiers[tier], cx + 96, cy + 32, 220, 17, '#0a5a2a', 'left');
+    if (tiered) { g.fillStyle = ['#1d4f7a', '#8a4a00', '#7a1a6a', '#8a1a1a'][tier]; rr(cx + cw2 - 92, cy + 112 - 11, 80, 22, 8); g.fill(); text('TIER ' + ['I', 'II', 'III', 'IV'][tier], cx + cw2 - 52, cy + 113, 12, '#fff', 'center', '900'); }
+    wrap(pk.descs[tier], 210, 15).slice(0, 2).forEach((l, k) => text(l, cx + 96, cy + 58 + k * 19, 15, '#444', 'left', '700', null, FB));
+    if (pk.per > 1 && pk.per < 99) for (let k = 0; k < pk.per; k++) { g.fillStyle = k < inTier ? '#1fae4b' : '#d5dbd3'; g.beginPath(); g.arc(cx + 30 + k * 22, cy + 112, 7, 0, 7); g.fill(); }
+    const label = maxed ? (tiered ? 'ALL TIERS DONE' : 'OWNED') : useless ? 'NO STRIKES' : money(price);
+    button(cx + 20, cy + chh - 76, cw2 - 40, 56, label, () => { if (G.cash >= price) { G.cash -= price; G.perks[pk.id]++; if (G.perks.whistle && G.perks.map && G.perks.scanner) badge('geared');
+      if (tiered && G.perks[pk.id] < pk.max && G.perks[pk.id] % pk.per === 0) { G.shopNote = { text: `TIER UP!  ${pk.tiers[perkTier(pk, G.perks[pk.id])]} unlocked`, t: G.clock }; S.fanfare(); confettiUI(cx + cw2 / 2, cy + 40); } if (pk.id === 'bribe') G.strikes = Math.max(0, G.strikes - 1); S.coin(); buzz(20); } }, { size: 22, disabled: maxed || useless || G.cash < price });
   });
   g.globalAlpha = 1;
   button(560, 740, 480, 66, `CLOCK IN · DAY ${G.day + 1}`, () => { G.day++; startDay(); }, { size: 26 });
+}
+let UIC = [];                                   // confetti drawn in menu space (the shop is a menu, not the store floor)
+function confettiUI(x, y) { for (let i = 0; i < 30; i++) UIC.push({ x, y, vx: rnd(-220, 220), vy: rnd(-300, -60), t: 0, c: pick(['#ffe14d', '#7dff7d', '#ff6a6a', '#6ad1ff']) }); }
+function drawUIConfetti() {
+  for (const q of UIC) { q.t += 1 / 60; q.x += q.vx / 60; q.y += q.vy / 60; q.vy += 9; g.globalAlpha = clamp(1.4 - q.t, 0, 1); g.fillStyle = q.c; g.fillRect(q.x - 3, q.y - 3, 6, 6); }
+  g.globalAlpha = 1; UIC = UIC.filter(q => q.t < 1.4);
 }
 function perkIcon(id, x, y) {
   g.save(); g.translate(x, y); g.lineWidth = 2; g.strokeStyle = '#2a2a2a';
@@ -2338,15 +2960,62 @@ function perkIcon(id, x, y) {
   else { g.fillStyle = '#3c8a3c'; g.beginPath(); g.arc(0, 6, 18, 0, 7); g.fill(); g.stroke(); g.fillRect(-6, -18, 12, 8); text('$', 0, 8, 20, '#ffe14d'); }
   g.restore();
 }
+let fpsAvg = 60;
+function seg(x, y, label, opts, cur, pick) {         // a label and a row of choices, the current one in green
+  text(label, x, y + 18, 16, '#333', 'left', '800', null, FB);
+  const w = 250 / opts.length;
+  opts.forEach((o, i) => {
+    const on = i === cur, bx = x + 150 + i * w;
+    g.fillStyle = on ? '#0a7a36' : '#e3e8e1'; rr(bx + 2, y, w - 4, 36, 8); g.fill();
+    fitText(o, bx + w / 2, y + 19, w - 10, 14, on ? '#fff' : '#33503d', 'center', '900', FB);
+    hit(bx + 2, y, w - 4, 36, () => pick(i));
+  });
+}
+function drawSettings(close) {
+  overlayDim(); paper(360, 110, 880, 740);
+  text('SETTINGS', 800, 152, 34, '#0a7a36');
+  const head = (t, x, y) => { text(t, x, y, 15, '#1d4f7a', 'left', '900'); g.fillStyle = '#cfd6cc'; g.fillRect(x, y + 12, 400, 2); };
+  const L = 390, Rx = 820, row = 46, set = (k, v) => { SET[k] = v; saveSet(); };
+  head('AUDIO', L, 196);
+  seg(L, 218, 'Sound', ['ON', 'OFF'], S.on ? 0 : 1, i => { if ((i === 0) !== S.on) toggleSound(); });
+  seg(L, 218 + row, 'Music', ['ON', 'OFF'], M.on ? 0 : 1, i => { if ((i === 0) !== M.on) toggleMusic(); });
+  seg(L, 218 + row * 2, 'Volume', ['LOW', 'MED', 'HIGH'], SET.vol, i => { set('vol', i); applyVolume(); });
+  seg(L, 218 + row * 3, 'Music volume', ['LOW', 'MED', 'HIGH'], SET.mvol, i => { set('mvol', i); applyVolume(); });
+  head('CONTROLS', L, 422);
+  seg(L, 444, 'Buttons on', ['LEFT', 'RIGHT'], SET.joySide === 'left' ? 1 : 0, i => set('joySide', i ? 'left' : 'right'));
+  seg(L, 444 + row, 'Joystick size', ['SMALL', 'MED', 'BIG'], SET.joySize, i => set('joySize', i));
+  seg(L, 444 + row * 2, 'Vibration', ['ON', 'OFF'], SET.vib ? 0 : 1, i => set('vib', !i));
+  seg(L, 444 + row * 3, 'Tips & hints', ['ON', 'OFF'], SET.hints ? 0 : 1, i => set('hints', !i));
+  head('DISPLAY', Rx, 196);
+  seg(Rx, 218, 'Graphics', ['AUTO', 'HIGH', 'LOW'], ['auto', 'high', 'low'].indexOf(gfxMode), i => { while (['auto', 'high', 'low'][i] !== gfxMode) cycleGfx(); });
+  seg(Rx, 218 + row, 'Screen shake', ['ON', 'OFF'], G.calm ? 1 : 0, i => { G.calm = !!i; store.set('calm', G.calm); });
+  seg(Rx, 218 + row * 2, 'Minimap', ['SHOW', 'TUCKED', 'OFF'], ['show', 'hidden', 'off'].indexOf(SET.map), i => set('map', ['show', 'hidden', 'off'][i]));
+  seg(Rx, 218 + row * 3, 'Minimap size', ['SMALL', 'MED', 'BIG'], SET.mapSize, i => set('mapSize', i));
+  seg(Rx, 218 + row * 4, 'Name tags', ['CLOSE', 'ALWAYS', 'OFF'], ['near', 'always', 'off'].indexOf(SET.names), i => set('names', ['near', 'always', 'off'][i]));
+  seg(Rx, 218 + row * 5, 'FPS counter', ['OFF', 'ON'], SET.fps ? 1 : 0, i => set('fps', !!i));
+  seg(Rx, 218 + row * 6, 'Phone zoom', ['FAR', 'NORMAL', 'CLOSE'], SET.zoom, i => set('zoom', i));
+  head('DATA', Rx, 560);
+  const armed = G.resetArm && G.clock - G.resetArm < 4;
+  button(Rx, 582, 400, 46, armed ? 'TAP AGAIN TO ERASE EVERYTHING' : 'RESET ALL PROGRESS', () => {
+    if (!armed) { G.resetArm = G.clock; return; }
+    try { Object.keys(localStorage).filter(k => k.startsWith('grenards_') && k !== 'grenards_settings').forEach(k => localStorage.removeItem(k)); } catch (e) {}
+    location.reload();
+  }, { size: armed ? 15 : 17, bg: '#8a1a1a', bg2: '#c0392b' });
+  text('Erases scores, Bucko Bucks, the store, badges and the Buckodex.', Rx + 200, 644, 12, '#777', 'center', '700', null, FB);
+  text('Buckards v' + (APP && APP.version ? APP.version() : GR_VERSION) + '  ·  minimap: tap its - to tuck it away', Rx + 200, 666, 12, '#777', 'center', '700', null, FB);
+  if (touchy()) text('Phone tip: touch anywhere and drag to walk. Double-tap and hold to dash.', 800, 716, 14, '#555', 'center', '700', null, FB);
+  button(650, 760, 300, 56, 'DONE', close, { size: 22 });
+}
 function drawPause() {
+  if (G.showSettings) { drawSettings(() => { G.showSettings = false; }); return; }
   paper(560, 250, 480, 582);
   text('ON BREAK', 800, 305, 40, '#0a7a36');
   text(`Total score ${money(G.total)} · Next threat: ${threat().ac}`, 800, 345, 15, '#555', 'center', '700', null, FB);
   button(620, 370, 360, 64, 'BACK TO WORK', resume, { size: 24 });
   button(620, 450, 360, 56, 'MUSIC: ' + (M.on ? 'ON' : 'OFF'), toggleMusic, { size: 20, bg: '#2c5f8a', bg2: '#3b7bb3' });
   button(620, 522, 360, 56, 'SOUND: ' + (S.on ? 'ON' : 'OFF'), toggleSound, { size: 20, bg: '#2c5f8a', bg2: '#3b7bb3' });
-  button(620, 594, 360, 56, 'SCREEN SHAKE: ' + (G.calm ? 'OFF' : 'ON'), () => { G.calm = !G.calm; store.set('calm', G.calm); }, { size: 20, bg: '#2c5f8a', bg2: '#3b7bb3' });
-  button(620, 666, 360, 56, 'GRAPHICS: ' + (gfxMode === 'auto' ? (autoLow ? 'AUTO (LOW)' : 'AUTO') : gfxMode.toUpperCase()), cycleGfx, { size: 20, bg: '#2c5f8a', bg2: '#3b7bb3' });
+  button(620, 594, 360, 56, 'MINIMAP: ' + { show: 'SHOWN', hidden: 'TUCKED', off: 'OFF' }[SET.map], () => { SET.map = { show: 'hidden', hidden: 'off', off: 'show' }[SET.map]; saveSet(); }, { size: 20, bg: '#2c5f8a', bg2: '#3b7bb3' });
+  button(620, 666, 360, 56, 'ALL SETTINGS', () => { G.showSettings = true; }, { size: 20, bg: '#5a4500', bg2: '#8a6d10' });
   button(620, 738, 360, 56, 'QUIT SHIFT', () => { G.state = 'title'; M.stop(); }, { size: 20, bg: '#8a1a1a', bg2: '#c0392b' });
 }
 function drawAirstrikeText() {
@@ -2529,10 +3198,12 @@ function frame(now) {
     drawEvents();
     drawArrow();
     const people = [...G.buckos, G.player, ...CASHIERS, ...G.cops];
+    if (G.pet && META.eq.pet) people.push(G.pet);
     if (G.strikes >= MAX_STRIKES - 2 && !isAir()) people.push(...AGENTS);
     people.sort((a, b) => a.y - b.y);
     for (const e of people) {
-      if (e === G.player) { if (!(G.as && G.as.hitPlayer && !e.rag)) drawPerson(e, PLAYER_LOOK, { r: 19 }); }
+      if (e === G.player) { if (!(G.as && G.as.hitPlayer && !e.rag)) drawPerson(e, playerLook(), { r: 19 }); }
+      else if (e.isPet) drawPet(META.eq.pet, e.x, e.y, e.dir, e.walk, Math.hypot(e.vx, e.vy) > 5);
       else if (e.isCashier) drawCashier(e);
       else if (e.isAgent) { e.dir = G.player.x > e.x ? 1 : -1; drawPerson(e, AGENT_LOOK); }
       else if (G.cops.includes(e)) drawPerson(e, COP_LOOK, { r: 19, angry: true });
@@ -2544,6 +3215,7 @@ function frame(now) {
       g.fillStyle = '#ffe14d'; g.strokeStyle = '#06331a'; g.lineWidth = 2;
       g.beginPath(); g.moveTo(p.x - 8, y - 8); g.lineTo(p.x + 8, y - 8); g.lineTo(p.x, y + 2); g.closePath(); g.fill(); g.stroke();
       text('YOU', p.x, y - 18, 11, '#ffe14d', 'center', '900', '#06331a');
+      const ti = META.eq.title && shopItem(META.eq.title); if (ti) text(ti.name, p.x, y - 34, 13, ti.color, 'center', '900', '#06331a');
     }
     drawCeiling();
     for (const b of G.buckos) drawWant(b);
@@ -2575,6 +3247,7 @@ function frame(now) {
     drawHUD();
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (cam.s > scFit * 1.08 && G.state === 'play') drawMinimap();
+    if (SET.fps) { fpsAvg += ((1 / Math.max(raw, 0.001)) - fpsAvg) * 0.05; text(`${Math.round(fpsAvg)} FPS`, cw - 10, hudH + 16, 13, '#fff', 'right', '900', 'rgba(0,0,0,0.6)', FB); }
     const ts = Math.min(cw / 900, ch / 500, 1);
     g.setTransform(dpr * ts, 0, 0, dpr * ts, dpr * (cw / 2 - 800 * ts), dpr * (hudH + 4 - 75 * ts)); drawToast(); drawPA();
     g.setTransform(dpr * ts, 0, 0, dpr * ts, dpr * (cw / 2 - 800 * ts), dpr * (ch - 46 * ts)); drawHint();
@@ -2603,7 +3276,8 @@ requestAnimationFrame(frame);
 /* updates: the Android wrapper calls grUpdate when it has one; on the PC the
    launcher does the updating and the page only says that a new version is out */
 window.grUpdate = (state, version, notes) => { G.update = { state, version, notes }; };
-const ON_WEB = /github\.io$/.test(location.host);        // the copy GitHub Pages serves (what the exe opens)
+const OFFLINE_FILE = /Buckards-Offline/i.test(decodeURIComponent(location.pathname));   // the copy-anywhere offline file
+const ON_WEB = /github\.io$|netlify\.app$/.test(location.host);        // the copy GitHub Pages serves (what the exe opens)
 function freshLoad(v) { location.replace(location.pathname + '?v=' + encodeURIComponent(v) + location.hash); }
 function checkUpdate() {
   if (APP) { try { APP.check(); } catch (e) {} return; }     // the Android wrapper downloads it and calls grUpdate
@@ -2611,11 +3285,18 @@ function checkUpdate() {
   fetch(UPDATE_URL + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(m => {
     if (!m || !newer(m.version, GR_VERSION)) return;
     if (ON_WEB && G.state === 'title') { freshLoad(m.version); return; }        // nothing to lose on the title screen: just update
-    G.update = { state: ON_WEB ? 'web' : 'pc', version: m.version, notes: m.notes };
+    G.update = { state: ON_WEB ? 'web' : OFFLINE_FILE ? 'file' : 'pc', version: m.version, notes: m.notes };
   }).catch(() => {});
 }
 checkUpdate();
 setInterval(checkUpdate, 4 * 60 * 1000);
+let installEvt = null;                                       // Chrome's "install this app" offer, shown as a title button
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+addEventListener('appinstalled', () => { installEvt = null; });
+if (ON_WEB && 'serviceWorker' in navigator) {               // saves the game so it runs with no internet
+  const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.webmanifest'; document.head.appendChild(l);
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
