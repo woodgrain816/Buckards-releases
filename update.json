@@ -1,10 +1,10 @@
 {
-  "version": "2.6.1",
+  "version": "2.7.0",
   "minNative": 1,
-  "notes": "Calmer phone screen: the joystick only appears where you touch and fades when you let go, the camera is zoomed in closer, a simpler top bar, LET GO only shows when you need it, and DASH is now a double-tap.",
-  "page": "buckards-2.6.1.html",
+  "notes": "Chromebook version: install Buckards from the game page (INSTALL APP) and it runs fully offline. There is also a Buckards-Offline.html file that needs no internet at all. Chromebook touchscreens get the phone joystick.",
+  "page": "buckards-2.7.0.html",
   "apk": "Buckards.apk",
-  "sha256": "8d7c2e6a2e1de0e340d959c730de8c3a83d821468f314d9b42e5e0d776e3b49c",
-  "size": 230544,
-  "date": "2026-10-25T01:06:40.061Z"
+  "sha256": "952c69bdad540c04e5d16c6c8c76396d8d4c5127d895758b74d2f750d4729f79",
+  "size": 231992,
+  "date": "2026-10-25T05:01:50.737Z"
 }

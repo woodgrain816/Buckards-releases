@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.6.1";
+const GR_VERSION = "2.7.0";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Calmer phone screen: the joystick only appears where you touch and fades when you let go, the camera is zoomed in closer, a simpler top bar, LET GO only shows when you need it, and DASH is now a double-tap.";
+const GR_NOTES = "Chromebook version: install Buckards from the game page (INSTALL APP) and it runs fully offline. There is also a Buckards-Offline.html file that needs no internet at all. Chromebook touchscreens get the phone joystick.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -905,8 +905,8 @@ cv.addEventListener('pointerdown', e => {
     if (G.player.chain.length && Math.hypot(px - B.go.x, py - B.go.y) < B.r + 10) { letGo(); return; }
     if (G.perks.whistle && Math.hypot(px - B.wh.x, py - B.wh.y) < B.r * 0.8 + 10) { blowWhistle(); return; }
     if (joy.id === null) {                     // the stick appears wherever your thumb lands and stays put there
-      joy.id = e.pointerId; joy.ox = joy.x = px; joy.oy = joy.y = py;
-      if (touchy() && performance.now() - (joy.upAt || 0) < 280) dash();   // double-tap and hold = dash
+      joy.id = e.pointerId; joy.ox = joy.x = px; joy.oy = joy.y = py; joy.touch = e.pointerType === 'touch';
+      if ((touchy() || joy.touch) && performance.now() - (joy.upAt || 0) < 280) dash();   // double-tap and hold = dash
       try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     }
     return;
@@ -923,7 +923,7 @@ function moveInput() {
   if (keys.KeyA || keys.ArrowLeft) mx--; if (keys.KeyD || keys.ArrowRight) mx++;
   if (keys.KeyW || keys.ArrowUp) my--; if (keys.KeyS || keys.ArrowDown) my++;
   if (joy.id !== null) {
-    const fixed = touchy(), dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), max = fixed ? joyR() : 64;
+    const fixed = touchy() || joy.touch, dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), max = fixed ? joyR() : 64;
     if (m > 6) { const k = Math.min(m, max) / max; mx = dx / m * k; my = dy / m * k; }
     if (!fixed && m > max) { joy.ox = joy.x - dx / m * max; joy.oy = joy.y - dy / m * max; }   // mouse: base drags along
   }
@@ -2300,7 +2300,7 @@ function drawMinimap() {
 function drawControls() {
   if (G.state !== 'play') return;
   const B = bigBtns();
-  if (touchy()) {                              // only there while your thumb is down, then it fades out
+  if (touchy() || joy.touch) {                 // only there while your thumb is down, then it fades out
     const R = joyR(), down = joy.id !== null, a = down ? 1 : clamp(1 - (performance.now() - (joy.upAt || -1e9)) / 350, 0, 1);
     if (a > 0) {
       let kx = 0, ky = 0;
@@ -2467,6 +2467,13 @@ function drawTitle(t) {
   g.fillStyle = 'rgba(8,22,14,0.75)'; rr(right - 220, 18, 100, 40, 10); g.fill(); g.strokeStyle = 'rgba(255,224,77,0.6)'; g.lineWidth = 2; g.stroke();
   text('SETTINGS', right - 170, 39, 12, '#ffe14d', 'center', '800', null, FB);
   hit(right - 220, 18, 100, 40, () => { G.showSettings = true; });
+  if (installEvt) {
+    g.fillStyle = 'rgba(10,122,54,0.95)'; rr(right - 348, 18, 120, 40, 10); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 2; g.stroke();
+    text('INSTALL APP', right - 288, 39, 12, '#ffe14d', 'center', '900', null, FB);
+    hit(right - 348, 18, 120, 40, () => { const e = installEvt; installEvt = null; e.prompt(); });
+  }
+  if (OFFLINE_FILE || (ON_WEB && navigator.serviceWorker && navigator.serviceWorker.controller))
+    text('works offline', right - 16, 866, 12, 'rgba(160,255,180,0.8)', 'right', '800', null, FB);
   drawUpdateBanner(800, 40);
   if (G.showSettings) drawSettings(() => { G.showSettings = false; });
   else if (G.showBadges) drawBadges();
@@ -2615,6 +2622,7 @@ function drawUpdateBanner(x, y) {
   const label = u.state === 'ready' ? `Version ${u.version} is ready - tap to restart`
     : u.state === 'apk' ? `New app version ${u.version} - tap to download`
     : u.state === 'web' ? `Version ${u.version} is out - tap to update`
+    : u.state === 'file' ? `Version ${u.version} is out - download the new Buckards-Offline file to get it`
     : `Version ${u.version} is out - close Buckards and open it again to update`;
   g.font = `800 18px ${FB}`; const w = g.measureText(label).width + 50;
   g.fillStyle = '#ffe14d'; rr(x - w / 2, y - 22, w, 44, 22); g.fill(); g.strokeStyle = '#06331a'; g.lineWidth = 3; g.stroke();
@@ -3044,6 +3052,7 @@ requestAnimationFrame(frame);
 /* updates: the Android wrapper calls grUpdate when it has one; on the PC the
    launcher does the updating and the page only says that a new version is out */
 window.grUpdate = (state, version, notes) => { G.update = { state, version, notes }; };
+const OFFLINE_FILE = /Buckards-Offline/i.test(decodeURIComponent(location.pathname));   // the copy-anywhere offline file
 const ON_WEB = /github\.io$/.test(location.host);        // the copy GitHub Pages serves (what the exe opens)
 function freshLoad(v) { location.replace(location.pathname + '?v=' + encodeURIComponent(v) + location.hash); }
 function checkUpdate() {
@@ -3052,11 +3061,18 @@ function checkUpdate() {
   fetch(UPDATE_URL + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(m => {
     if (!m || !newer(m.version, GR_VERSION)) return;
     if (ON_WEB && G.state === 'title') { freshLoad(m.version); return; }        // nothing to lose on the title screen: just update
-    G.update = { state: ON_WEB ? 'web' : 'pc', version: m.version, notes: m.notes };
+    G.update = { state: ON_WEB ? 'web' : OFFLINE_FILE ? 'file' : 'pc', version: m.version, notes: m.notes };
   }).catch(() => {});
 }
 checkUpdate();
 setInterval(checkUpdate, 4 * 60 * 1000);
+let installEvt = null;                                       // Chrome's "install this app" offer, shown as a title button
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+addEventListener('appinstalled', () => { installEvt = null; });
+if (ON_WEB && 'serviceWorker' in navigator) {               // saves the game so it runs with no internet
+  const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.webmanifest'; document.head.appendChild(l);
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
