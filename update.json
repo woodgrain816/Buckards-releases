@@ -1,10 +1,10 @@
 {
-  "version": "2.6.0",
+  "version": "2.6.1",
   "minNative": 1,
-  "notes": "The Buckards Company Store: 100+ things to buy with Bucko Bucks - 20 hats, 15 vests, 12 pets that follow you, 10 trails, 8 cart paint jobs, 12 titles, 12 one-day boosts and 12 new upgrades. Daily half-off deal and a Shopaholic cash bonus. Plus a real Settings menu (volume, joystick side and size, minimap, name tags, vibration, FPS) and a minimap you can tuck away.",
-  "page": "buckards-2.6.0.html",
+  "notes": "Calmer phone screen: the joystick only appears where you touch and fades when you let go, the camera is zoomed in closer, a simpler top bar, LET GO only shows when you need it, and DASH is now a double-tap.",
+  "page": "buckards-2.6.1.html",
   "apk": "Buckards.apk",
-  "sha256": "003d419afe704d92534dd7b417272563e2126dd27a64162e8b5c59d0273d65e6",
-  "size": 227922,
-  "date": "2026-10-25T00:49:50.996Z"
+  "sha256": "8d7c2e6a2e1de0e340d959c730de8c3a83d821468f314d9b42e5e0d776e3b49c",
+  "size": 230544,
+  "date": "2026-10-25T01:06:40.061Z"
 }

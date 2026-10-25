@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.6.0";
+const GR_VERSION = "2.6.1";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "The Buckards Company Store: 100+ things to buy with Bucko Bucks - 20 hats, 15 vests, 12 pets that follow you, 10 trails, 8 cart paint jobs, 12 titles, 12 one-day boosts and 12 new upgrades. Daily half-off deal and a Shopaholic cash bonus. Plus a real Settings menu (volume, joystick side and size, minimap, name tags, vibration, FPS) and a minimap you can tuck away.";
+const GR_NOTES = "Calmer phone screen: the joystick only appears where you touch and fades when you let go, the camera is zoomed in closer, a simpler top bar, LET GO only shows when you need it, and DASH is now a double-tap.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -45,7 +45,7 @@ let g = cv.getContext('2d');
 /* graphics: 'auto' (drops to low by itself if frames run slow), 'high' or 'low' */
 let gfxMode = (() => { try { return JSON.parse(localStorage.getItem('grenards_gfx')) || 'auto'; } catch (e) { return 'auto'; } })(), autoLow = false;
 const lowFX = () => gfxMode === 'low' || (gfxMode === 'auto' && autoLow);
-let cw, ch, dpr, sc, ox, oy, hs, hx, hudH, hudCut = 0, scFit, ov, vignette = null;
+let cw, ch, dpr, sc, ox, oy, hs, hx, hudH, hudCut = 0, scFit, ov, vignette = null, compactHUD = false;
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, lowFX() ? 1 : 1.75);
   cw = innerWidth; ch = innerHeight;
@@ -54,6 +54,8 @@ function resize() {
   sc = Math.min(cw / W, ch / H); ox = (cw - W * sc) / 2; oy = (ch - H * sc) / 2;   // whole 1600x900 (title)
   hudCut = cw < 1150 ? 216 : 0;                                                   // narrow screens: no logo, bigger HUD
   hs = Math.min(cw / (W - hudCut), 1); hx = (cw - (W - hudCut) * hs) / 2 - hudCut * hs; hudH = 60 * hs;
+  compactHUD = cw < 1150 && (MOBILE || matchMedia('(pointer:coarse)').matches);   // phones: five big readouts instead of nine small ones
+  if (compactHUD) { hs = Math.min(cw / 1000, 1); hx = (cw - 1000 * hs) / 2; hudH = 60 * hs; }
   scFit = Math.min(cw / W, (ch - hudH) / (H - 60));                                // whole floor
   ov = Math.min(cw / 1000, ch / 790, 1.25);                                        // menus: content spans y 100..880
   vignette = null;
@@ -73,7 +75,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('grenards_' + k, JSON.stringify(v)); } catch (e) {} }
 };
 const touchy = () => MOBILE || matchMedia('(pointer:coarse)').matches;
-const SET = Object.assign({ vol: 2, mvol: 2, map: 'show', mapSize: 1, names: 'near', fps: false, joySide: 'right', joySize: 1, vib: true, hints: true }, store.get('settings', {}));
+const SET = Object.assign({ zoom: 1, vol: 2, mvol: 2, map: (MOBILE || matchMedia('(pointer:coarse)').matches) ? 'hidden' : 'show', mapSize: 1, names: 'near', fps: false, joySide: 'right', joySize: 1, vib: true, hints: true }, store.get('settings', {}));
 const saveSet = () => store.set('settings', SET);
 const VOLS = [0.35, 0.7, 1];
 const buzz = ms => { try { if (SET.vib && touchy() && navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
@@ -84,7 +86,7 @@ const MIN_SCALE = 0.8;
 const cam = { x: W / 2, y: H / 2, s: 0, tx: 0, ty: 0 };
 const isAir = () => G.state === 'airstrike' || G.state === 'gameover' || G.state === 'aftermath';
 function updateCam(dt) {
-  const want = isAir() ? scFit : Math.max(scFit, MIN_SCALE);
+  const want = isAir() ? scFit : Math.max(scFit, touchy() ? [0.85, 1.05, 1.3][SET.zoom] : MIN_SCALE);
   cam.s = cam.s ? cam.s + (want - cam.s) * Math.min(1, dt * 3) : want;
   const vw = cw / cam.s, vh = (ch - hudH) / cam.s, p = G.player;
   const wx = vw >= W ? W / 2 : clamp(p.x, vw / 2, W - vw / 2), wy = vh >= H - 60 ? 60 + (H - 60) / 2 : clamp(p.y, 60 + vh / 2, H - vh / 2);
@@ -835,7 +837,7 @@ function bigBtns() {
   const r = clamp(Math.min(cw, ch) * 0.11, 34, 58), X = x => touchy() && SET.joySide !== 'left' ? cw - x : x;   // touch: buttons on the side the stick isn't
   return { r, dash: { x: X(cw - r * 3.4 - 14), y: ch - r * 0.8 - 14 }, go: { x: X(cw - r - 14), y: ch - r - 14 }, wh: { x: X(cw - r - 14), y: ch - r * 3.2 - 14 } };
 }
-function joyBase() { const R = clamp(Math.min(cw, ch) * 0.16, 52, 80) * [0.8, 1, 1.25][SET.joySize]; return { R, x: SET.joySide === 'left' ? R + 28 : cw - R - 28, y: ch - R - 28 }; }
+function joyR() { return clamp(Math.min(cw, ch) * 0.13, 46, 70) * [0.8, 1, 1.25][SET.joySize]; }
 
 addEventListener('keydown', e => {
   if (keys[e.code]) return; keys[e.code] = true;
@@ -900,12 +902,11 @@ cv.addEventListener('pointerdown', e => {
   for (let i = HITS.length - 1; i >= 0; i--) { const h = HITS[i]; if (px >= h.x1 && px <= h.x2 && py >= h.y1 && py <= h.y2) { h.fn(); return; } }
   if (G.state === 'play') {
     const B = bigBtns();
-    if (Math.hypot(px - B.go.x, py - B.go.y) < B.r + 10) { letGo(); return; }
+    if (G.player.chain.length && Math.hypot(px - B.go.x, py - B.go.y) < B.r + 10) { letGo(); return; }
     if (G.perks.whistle && Math.hypot(px - B.wh.x, py - B.wh.y) < B.r * 0.8 + 10) { blowWhistle(); return; }
-    if (touchy() && Math.hypot(px - B.dash.x, py - B.dash.y) < B.r * 0.75 + 8) { dash(); return; }
-    if (joy.id === null && (!touchy() || (SET.joySide === 'left' ? px < cw * 0.55 : px > cw * 0.45))) {   // touch: right side only, stick stays put
-      const J = joyBase(); joy.id = e.pointerId; joy.x = px; joy.y = py;
-      if (touchy()) { joy.ox = J.x; joy.oy = J.y; } else { joy.ox = px; joy.oy = py; }
+    if (joy.id === null) {                     // the stick appears wherever your thumb lands and stays put there
+      joy.id = e.pointerId; joy.ox = joy.x = px; joy.oy = joy.y = py;
+      if (touchy() && performance.now() - (joy.upAt || 0) < 280) dash();   // double-tap and hold = dash
       try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     }
     return;
@@ -913,7 +914,7 @@ cv.addEventListener('pointerdown', e => {
   if (G.state === 'intro') openDoors();
 }, { passive: false });
 cv.addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; if (e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
-const endJoy = e => { mouse.down = false; if (e.pointerType === 'touch') mouse.x = mouse.y = -1; if (e.pointerId === joy.id) joy.id = null; };
+const endJoy = e => { mouse.down = false; if (e.pointerType === 'touch') mouse.x = mouse.y = -1; if (e.pointerId === joy.id) { joy.id = null; joy.upAt = performance.now(); } };
 cv.addEventListener('pointerup', endJoy); cv.addEventListener('pointercancel', endJoy);
 cv.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -922,7 +923,7 @@ function moveInput() {
   if (keys.KeyA || keys.ArrowLeft) mx--; if (keys.KeyD || keys.ArrowRight) mx++;
   if (keys.KeyW || keys.ArrowUp) my--; if (keys.KeyS || keys.ArrowDown) my++;
   if (joy.id !== null) {
-    const fixed = touchy(), dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), max = fixed ? joyBase().R : 64;
+    const fixed = touchy(), dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), max = fixed ? joyR() : 64;
     if (m > 6) { const k = Math.min(m, max) / max; mx = dx / m * k; my = dy / m * k; }
     if (!fixed && m > max) { joy.ox = joy.x - dx / m * max; joy.oy = joy.y - dy / m * max; }   // mouse: base drags along
   }
@@ -2134,7 +2135,38 @@ function pillBg(x, w) { g.fillStyle = 'rgba(0,0,0,0.22)'; rr(x, 7, w, 44, 10); g
 function pill(x, w, label, value, col = '#fff', vsize = 22) {
   pillBg(x, w); text(label, x + w / 2, 18, 10, '#cfe8d6', 'center', '800', null, FB); text(value, x + w / 2, 37, vsize, col);
 }
+function drawHUDCompact() {
+  { const r = rankOf(CAREER.xp), lo = RANKS[r][0], hi = RANKS[r + 1] ? RANKS[r + 1][0] : lo + 1, k = RANKS[r + 1] ? clamp((CAREER.xp - lo) / (hi - lo), 0, 1) : 1;
+    g.fillStyle = '#7a6a1a'; g.fillRect(0, 55, 1000, 5); g.fillStyle = '#ffe14d'; g.fillRect(0, 55, 1000 * k, 5); }
+  const box = (x, w) => { g.fillStyle = 'rgba(0,0,0,0.22)'; rr(x, 5, w, 46, 9); g.fill(); };
+  const m = Math.round(clamp(1 - G.timer / (G.dayLen || 1), 0, 1) * 180), low = G.timer < 15 && G.state === 'play';
+  box(8, 150); text(`DAY ${G.day}`, 83, 18, 12, '#cfe8d6', 'center', '900', null, FB);
+  text(`${6 + Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')} PM`, 83, 36, 19, low ? '#ff6b6b' : '#fff');
+  g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(20, 46, 126, 3); g.fillStyle = low ? '#ff6b6b' : '#ffe14d'; g.fillRect(20, 46, 126 * m / 180, 3);
+  box(166, 170); text(G.streak >= 2 ? `WALLET · x${(1 + 0.25 * Math.min(G.streak - 1, 8)).toFixed(2).replace(/\.?0+$/, '')}` : 'WALLET', 251, 18, 12, G.streak >= 2 ? '#7dff7d' : '#cfe8d6', 'center', '900', null, FB);
+  { const k = 1 + G.walletPulse * 0.18; g.save(); g.translate(251, 36); g.scale(k, k); text(money(G.showCash), 0, 0, 21, '#ffe14d'); g.restore(); }
+  box(344, 96); text('LINE', 392, 18, 12, '#cfe8d6', 'center', '900', null, FB);
+  text(`${G.player.chain.length}/${maxLine()}`, 392, 36, 20, G.player.chain.length >= maxLine() ? '#ffcc00' : '#fff');
+  const T = threat(); box(448, 190);
+  for (let i = 0; i < MAX_STRIKES; i++) {
+    const on = i < G.strikes; g.fillStyle = on ? '#d63030' : 'rgba(0,0,0,0.3)'; g.beginPath(); g.arc(493 + i * 20, 19, 7, 0, 7); g.fill();
+    g.strokeStyle = on ? '#ffe14d' : 'rgba(255,255,255,0.35)'; g.lineWidth = 1.5; g.stroke();
+  }
+  fitText((G.tickets || 0) % 2 === 1 ? 'next mistake = STRIKE' : `bombers: ${T.ac}`, 543, 39, 176, 13, (G.tickets || 0) % 2 === 1 || G.strikes >= MAX_STRIKES - 1 ? '#ff9a8a' : '#ffd0c0', 'center', '800', FB);
+  const q = G.quest; box(646, 284);
+  if (q) {
+    fitText(q.text + (q.kind === 'timed' ? `  (${Math.ceil(q.time)}s)` : ''), 658, 19, 260, 14, '#fff', 'left', '800', FB);
+    const k = clamp(q.have / q.need, 0, 1);
+    g.fillStyle = 'rgba(0,0,0,0.35)'; rr(658, 32, 150, 11, 5); g.fill(); g.fillStyle = '#7dff7d'; rr(658, 32, 150 * k, 11, 5); g.fill();
+    text(`${Math.min(q.have, q.need)}/${q.need}  ·  ${money(q.reward)}`, 818, 38, 12, '#ffe14d', 'left', '900', null, FB);
+  }
+  const pb = { x: 940, y: 5, w: 52, h: 46 };
+  g.fillStyle = 'rgba(0,0,0,0.25)'; rr(pb.x, pb.y, pb.w, pb.h, 9); g.fill();
+  g.fillStyle = '#fff'; g.fillRect(pb.x + 17, pb.y + 13, 6, 20); g.fillRect(pb.x + 29, pb.y + 13, 6, 20);
+  if (G.state === 'play') hit(pb.x, pb.y, pb.w, pb.h, pause);
+}
 function drawHUD() {
+  if (compactHUD) { drawHUDCompact(); return; }
   const bg = g.createLinearGradient(0, 0, 0, 60); bg.addColorStop(0, '#0f9142'); bg.addColorStop(1, '#076b2f');
   g.fillStyle = bg; g.fillRect(0, 0, W, 60);
   { const r = rankOf(CAREER.xp), lo = RANKS[r][0], hi = RANKS[r + 1] ? RANKS[r + 1][0] : lo + 1, k = RANKS[r + 1] ? clamp((CAREER.xp - lo) / (hi - lo), 0, 1) : 1;
@@ -2268,14 +2300,15 @@ function drawMinimap() {
 function drawControls() {
   if (G.state !== 'play') return;
   const B = bigBtns();
-  if (touchy()) {                              // fixed stick, always shown, knob can't leave the ring
-    const J = joyBase(), on = joy.id !== null;
-    g.fillStyle = on ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.1)'; g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 3;
-    g.beginPath(); g.arc(J.x, J.y, J.R, 0, 7); g.fill(); g.stroke();
-    let kx = 0, ky = 0;
-    if (on) { const dx = joy.x - J.x, dy = joy.y - J.y, m = Math.hypot(dx, dy), k = m > J.R ? J.R / m : 1; kx = dx * k; ky = dy * k; }
-    g.fillStyle = on ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)'; g.beginPath(); g.arc(J.x + kx, J.y + ky, J.R * 0.42, 0, 7); g.fill();
-    if (!on && SET.hints && G.day === 1 && G.timer > G.dayLen - 20) { g.fillStyle = 'rgba(255,255,255,0.85)'; g.font = `700 14px ${FB}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('drag here to walk', J.x, J.y - J.R - 16); }
+  if (touchy()) {                              // only there while your thumb is down, then it fades out
+    const R = joyR(), down = joy.id !== null, a = down ? 1 : clamp(1 - (performance.now() - (joy.upAt || -1e9)) / 350, 0, 1);
+    if (a > 0) {
+      let kx = 0, ky = 0;
+      if (down) { const dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), k = m > R ? R / m : 1; kx = dx * k; ky = dy * k; }
+      g.globalAlpha = a; g.fillStyle = 'rgba(255,255,255,0.14)'; g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 3;
+      g.beginPath(); g.arc(joy.ox, joy.oy, R, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.arc(joy.ox + kx, joy.oy + ky, R * 0.42, 0, 7); g.fill(); g.globalAlpha = 1;
+    } else if (SET.hints && G.day === 1 && G.timer > G.dayLen - 25) text('Touch anywhere and drag to walk  ·  double-tap and hold to dash', cw / 2, ch - 100, 15, '#fff', 'center', '800', 'rgba(0,0,0,0.6)', FB);
   } else if (joy.id !== null) {
     g.fillStyle = 'rgba(255,255,255,0.12)'; g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 3;
     g.beginPath(); g.arc(joy.ox, joy.oy, 64, 0, 7); g.fill(); g.stroke();
@@ -2283,17 +2316,11 @@ function drawControls() {
     g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.arc(joy.ox + dx * k, joy.oy + dy * k, 28, 0, 7); g.fill();
   }
   const on = G.player.chain.length > 0;
-  if (touchy() || on) {
+  if (on) {                                    // LET GO only shows up when you're leading someone
     g.fillStyle = on ? 'rgba(214,48,48,0.88)' : 'rgba(80,80,80,0.5)'; g.beginPath(); g.arc(B.go.x, B.go.y, B.r, 0, 7); g.fill();
     g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 3; g.stroke();
     g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${Math.round(B.r * 0.3)}px ${FD}`;
     g.fillText('LET GO', B.go.x, B.go.y - B.r * 0.1); g.font = `700 ${Math.round(B.r * 0.2)}px ${FB}`; g.fillText(touchy() ? 'last Bucko' : '(SPACE)', B.go.x, B.go.y + B.r * 0.25);
-  }
-  if (touchy()) {
-    const r = B.r * 0.75, ready = G.dashCD <= 0;
-    g.fillStyle = ready ? 'rgba(40,90,160,0.88)' : 'rgba(80,80,80,0.55)'; g.beginPath(); g.arc(B.dash.x, B.dash.y, r, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 3; g.stroke();
-    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${Math.round(r * 0.36)}px ${FD}`; g.fillText('DASH', B.dash.x, B.dash.y);
   }
   if (G.perks.whistle) {
     const r = B.r * 0.8, ready = G.whistleCD <= 0;
@@ -2723,7 +2750,7 @@ function drawSettings(close) {
   seg(L, 218 + row * 2, 'Volume', ['LOW', 'MED', 'HIGH'], SET.vol, i => { set('vol', i); applyVolume(); });
   seg(L, 218 + row * 3, 'Music volume', ['LOW', 'MED', 'HIGH'], SET.mvol, i => { set('mvol', i); applyVolume(); });
   head('CONTROLS', L, 422);
-  seg(L, 444, 'Joystick side', ['RIGHT', 'LEFT'], SET.joySide === 'left' ? 1 : 0, i => set('joySide', i ? 'left' : 'right'));
+  seg(L, 444, 'Buttons on', ['LEFT', 'RIGHT'], SET.joySide === 'left' ? 1 : 0, i => set('joySide', i ? 'left' : 'right'));
   seg(L, 444 + row, 'Joystick size', ['SMALL', 'MED', 'BIG'], SET.joySize, i => set('joySize', i));
   seg(L, 444 + row * 2, 'Vibration', ['ON', 'OFF'], SET.vib ? 0 : 1, i => set('vib', !i));
   seg(L, 444 + row * 3, 'Tips & hints', ['ON', 'OFF'], SET.hints ? 0 : 1, i => set('hints', !i));
@@ -2734,16 +2761,17 @@ function drawSettings(close) {
   seg(Rx, 218 + row * 3, 'Minimap size', ['SMALL', 'MED', 'BIG'], SET.mapSize, i => set('mapSize', i));
   seg(Rx, 218 + row * 4, 'Name tags', ['CLOSE', 'ALWAYS', 'OFF'], ['near', 'always', 'off'].indexOf(SET.names), i => set('names', ['near', 'always', 'off'][i]));
   seg(Rx, 218 + row * 5, 'FPS counter', ['OFF', 'ON'], SET.fps ? 1 : 0, i => set('fps', !!i));
-  head('DATA', Rx, 514);
+  seg(Rx, 218 + row * 6, 'Phone zoom', ['FAR', 'NORMAL', 'CLOSE'], SET.zoom, i => set('zoom', i));
+  head('DATA', Rx, 560);
   const armed = G.resetArm && G.clock - G.resetArm < 4;
-  button(Rx, 536, 400, 46, armed ? 'TAP AGAIN TO ERASE EVERYTHING' : 'RESET ALL PROGRESS', () => {
+  button(Rx, 582, 400, 46, armed ? 'TAP AGAIN TO ERASE EVERYTHING' : 'RESET ALL PROGRESS', () => {
     if (!armed) { G.resetArm = G.clock; return; }
     try { Object.keys(localStorage).filter(k => k.startsWith('grenards_') && k !== 'grenards_settings').forEach(k => localStorage.removeItem(k)); } catch (e) {}
     location.reload();
   }, { size: armed ? 15 : 17, bg: '#8a1a1a', bg2: '#c0392b' });
-  text('Erases scores, Bucko Bucks, the store, badges and the Buckodex.', Rx + 200, 600, 12, '#777', 'center', '700', null, FB);
-  text('Buckards v' + (APP && APP.version ? APP.version() : GR_VERSION) + '  ·  minimap: tap its - to tuck it away', Rx + 200, 626, 12, '#777', 'center', '700', null, FB);
-  if (touchy()) text('Phone tip: the joystick works anywhere on its half of the screen.', 800, 690, 14, '#555', 'center', '700', null, FB);
+  text('Erases scores, Bucko Bucks, the store, badges and the Buckodex.', Rx + 200, 644, 12, '#777', 'center', '700', null, FB);
+  text('Buckards v' + (APP && APP.version ? APP.version() : GR_VERSION) + '  ·  minimap: tap its - to tuck it away', Rx + 200, 666, 12, '#777', 'center', '700', null, FB);
+  if (touchy()) text('Phone tip: touch anywhere and drag to walk. Double-tap and hold to dash.', 800, 716, 14, '#555', 'center', '700', null, FB);
   button(650, 760, 300, 56, 'DONE', close, { size: 22 });
 }
 function drawPause() {
