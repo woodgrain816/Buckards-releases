@@ -1,10 +1,10 @@
 {
-  "version": "2.8.2",
+  "version": "2.8.3",
   "minNative": 1,
-  "notes": "Buckards now also lives at buckards.vercel.app, installable and playable offline there too. Your run saves every day and save codes move progress between sites.",
-  "page": "buckards-2.8.2.html",
+  "notes": "Buckards is now also on Google Firebase at buckards-game.web.app, installable and playable offline there too.",
+  "page": "buckards-2.8.3.html",
   "apk": "Buckards.apk",
-  "sha256": "ca3141914eaaa48c44fea3cde71a9da3d5e99505b9ecfd8f8b848c2db9830121",
-  "size": 260130,
-  "date": "2026-10-25T05:43:37.860Z"
+  "sha256": "98e455f65974e893e93efa8d1828ad6b885966d781cb857496204f2030a10d93",
+  "size": 260107,
+  "date": "2026-10-25T05:50:14.799Z"
 }
