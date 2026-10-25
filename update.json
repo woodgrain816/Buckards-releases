@@ -1,10 +1,10 @@
 {
-  "version": "2.9.0",
+  "version": "2.9.1",
   "minNative": 1,
-  "notes": "Harder and funnier: HARD and NIGHTMARE modes (pay 1.5x and 2.2x), a random Twist most days (Black Friday, Surprise Inspection, Forklift Training, Brownout, Flash Mob, Waxed Floors and more), Speed Walker and Grandpa Buckos, and forklifts driven by Gary. The PC version now always keeps one save.",
-  "page": "buckards-2.9.0.html",
+  "notes": "Tablets: Buckards now turns with your tablet and fits standing up or sideways (needs the new app download once). The title screen and menus are bigger on tall screens.",
+  "page": "buckards-2.9.1.html",
   "apk": "Buckards.apk",
-  "sha256": "4de17d54c8421ed80959b324c6c10560cb2f4fcffdbe0e60ce458cf93fe17faf",
-  "size": 270643,
-  "date": "2026-10-25T17:25:07.431Z"
+  "sha256": "60f7d2685d40de7ebe0fa299204b9171c78b6cdf209f6d4a86a1f8471eee61e9",
+  "size": 270840,
+  "date": "2026-10-25T20:04:55.665Z"
 }
