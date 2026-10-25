@@ -1,10 +1,10 @@
 {
-  "version": "2.4.0",
+  "version": "2.5.0",
   "minNative": 1,
-  "notes": "Funnier: Buckos babble and crack jokes, conga-line chatter, cashier comebacks, surnames, store events (oil spill, free hot dogs, church bus, raccoon!), streak shout-outs, happy hops, dash (Shift), Bucko Bomber radio chatter. Plus the Buckodex (collect all 32 Buckos) and a free Lucky Bucko scratch ticket every day.",
-  "page": "buckards-2.4.0.html",
+  "notes": "Bucko Bucks + permanent Corporate Upgrades, 3 Daily Missions with a bonus chest, and a daily login streak.",
+  "page": "buckards-2.5.0.html",
   "apk": "Buckards.apk",
-  "sha256": "2a8377b0be830aabf26b3b23092cf8654fe7de00b2fafda5294a246c92939095",
-  "size": 180753,
-  "date": "2026-10-25T00:05:31.758Z"
+  "sha256": "1fc24df94a09e26fbf27ac22da93b381696b1801ae9b72c4bcac3f91702de869",
+  "size": 188846,
+  "date": "2026-10-25T00:25:26.695Z"
 }

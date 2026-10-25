@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.4.0";
+const GR_VERSION = "2.5.0";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Funnier: Buckos babble and crack jokes, conga-line chatter, cashier comebacks, surnames, store events (oil spill, free hot dogs, church bus, raccoon!), streak shout-outs, happy hops, dash (Shift), Bucko Bomber radio chatter. Plus the Buckodex (collect all 32 Buckos) and a free Lucky Bucko scratch ticket every day.";
+const GR_NOTES = "Bucko Bucks + permanent Corporate Upgrades, 3 Daily Missions with a bonus chest, and a daily login streak.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -363,7 +363,7 @@ let nameBag = [];
 function newBucko(type, x, y, entering) {
   if (!nameBag.length) nameBag = NAMES.slice().sort(() => Math.random() - 0.5);
   const it = type === 'contractor' ? ['load of 2x4s', 0, 'LUMBER', 'plank'] : pick(ITEMS);
-  const golden = type !== 'contractor' && Math.random() < 0.05, look = makeLook(type);
+  const golden = type !== 'contractor' && Math.random() < 0.05 + 0.02 * upL('golden'), look = makeLook(type);
   if (golden) Object.assign(look, { shirt: 'flannel', shirtCol: '#c9970f', hat: 'blaze', hatCol: '#e8b923' });
   return { golden, type, x, y, surname: pick(SURNAMES), voice: rnd(170, 330), name: nameBag.pop(), item: it[0], price: it[1], area: it[2], kind: it[3], look,
     state: entering ? 'entering' : 'shop', target: entering ? { x: 190, y: 640 } : null, pause: rnd(0, 1.5),
@@ -403,7 +403,8 @@ const G = {
   player: { x: 800, y: 620, vx: 0, vy: 0, walk: 0, dir: 1, chain: [], trail: [], seed: 0 }
 };
 window.G = G;   // poke at it from the console while testing
-const maxLine = () => 3 + G.perks.lanyard;
+const maxLine = () => 3 + G.perks.lanyard + upL('line');
+const scanNeed = () => 1.6 * (G.perks.scanner ? 0.5 : 1) * (1 - 0.15 * upL('scan'));
 const threat = () => LADDER[Math.min(G.level, LADDER.length - 1)];
 
 function addScore(v) {              // earnings and fines move the total score; perks don't
@@ -423,7 +424,7 @@ function dayCfg(d) {
 function rollType(w) { let s = w.reduce((a, b) => a + b[1], 0) * Math.random(); for (const [t, k] of w) if ((s -= k) <= 0) return t; return 'regular'; }
 
 function newGame() {
-  Object.assign(G, { tickets: 0, clean: 0, coins: [], banner: null, showCash: 0, extra: 0, day: 1, strikes: 0, cash: 0, removed: 0, newBest: false, streak: 0, bestStreak: 0, snap: null, level: 0, quest: null,
+  Object.assign(G, { dayBB: 0, tickets: 0, clean: 0, coins: [], banner: null, showCash: 0, extra: 0, day: 1, strikes: 0, cash: 100 * upL('wallet'), removed: 0, newBest: false, streak: 0, bestStreak: 0, snap: null, level: 0, quest: null,
     perks: { shoes: 0, lanyard: 0, scanner: 0, whistle: 0, map: 0, bribe: 0 } });
   startDay();
 }
@@ -464,14 +465,14 @@ function newQuest() {
   if (d >= 2) opts.push({ kind: 'catch', need: 2, text: 'Catch 2 sneaky Buckos' }, { kind: 'coupon', need: 3, text: 'Get 3 coupon Buckos out' });
   if (d >= 3) opts.push({ kind: 'contractor', need: 2, text: 'Get 2 contractors out' });
   let q; do { q = Object.assign({}, pick(opts)); } while (G.quest && q.text === G.quest.text && opts.length > 1);
-  q.have = 0; q.reward = Math.round((120 + q.need * 45 + d * 30) / 10) * 10;
+  q.have = 0; q.reward = Math.round((120 + q.need * 45 + d * 30) * (1 + 0.2 * upL('quest')) / 10) * 10;
   G.quest = q;
 }
 function questTick(kind, v) {
   const q = G.quest; if (!q || q.kind !== kind) return;
   q.have = kind === 'trip' || kind === 'streak' ? Math.max(q.have, v) : q.have + v;
   if (q.have >= q.need) {
-    earn(q.reward); S.fanfare(); buzz([30, 40, 30]); addXP(40);
+    earn(q.reward); S.fanfare(); buzz([30, 40, 30]); addXP(40); bb(3); mission('quest');
     banner('QUEST COMPLETE', `${q.text}  ·  +${money(q.reward)}`, '#7dff7d'); spawnCoins(G.player.x, G.player.y, 10);
     confetti(G.player.x, G.player.y - 30, 40);
     newQuest();
@@ -500,6 +501,63 @@ function addXP(n) {
     if (after === RANKS.length - 1) badge('legend');
   }
 }
+/* Bucko Bucks: kept forever, spent on Corporate Upgrades that make every future run better */
+const UPGRADES = [
+  ['wallet', 'Thicker Wallet', 'Start every run with +$100', 5],
+  ['patience', 'Patient Buckos', 'Buckos wait 10% longer before running', 5],
+  ['line', 'Extra Lanyard', 'Lead one more Bucko, every run', 2],
+  ['scan', 'Faster Registers', 'Coupon scans 15% quicker', 3],
+  ['golden', 'Lucky Flannel', 'Golden Buckos show up more often', 3],
+  ['insure', 'Bucko Insurance', 'Bucko Bomber fines 15% smaller', 3],
+  ['ticket', 'Better Tickets', 'Scratch tickets pay out better', 3],
+  ['quest', 'Quest Bonus', 'Quests pay 20% more', 3]];
+const UP_COST = [10, 25, 50, 90, 150];
+const META = { bb: store.get('bb', 0), up: store.get('up', {}), login: store.get('login', { last: '', streak: 0 }), missions: null };
+const upL = id => META.up[id] || 0;
+function bb(n, why) {
+  META.bb += n; store.set('bb', META.bb); G.dayBB = (G.dayBB || 0) + n;
+  if (why) G.pops.push({ x: G.player.x + 40, y: G.player.y - 40, text: `+${n} BB`, color: '#9fe0ff', size: 16, t: 0 });
+}
+function buyUpgrade(id) {
+  const u = UPGRADES.find(x => x[0] === id), l = upL(id); if (l >= u[3]) return;
+  const cost = UP_COST[l]; if (META.bb < cost) { S.nope(); return; }
+  META.bb -= cost; META.up[id] = l + 1; store.set('bb', META.bb); store.set('up', META.up); S.fanfare();
+}
+/* three missions a day, the same for the whole calendar day; progress carries across runs */
+const MISSION_POOL = [
+  ['out', 'Get {n} Buckos out', [15, 25, 40]], ['catch', 'Catch {n} runners yourself', [2, 4, 6]], ['golden', 'Get {n} Golden Bucko{s} out', [1, 2]],
+  ['quest', 'Finish {n} quests', [2, 3, 5]], ['day', 'Reach day {n}', [3, 4, 6]], ['streak', 'Hit a {n}x streak', [6, 10, 15]],
+  ['raccoon', 'Catch the raccoon', [1]], ['scratch', 'Scratch {n} lucky tickets', [2, 3]]];
+function loadMissions() {
+  const today = new Date().toDateString(), saved = store.get('missions', null);
+  if (saved && saved.date === today) return (META.missions = saved);
+  let seed = 0; for (const ch of today) seed = (seed * 31 + ch.charCodeAt(0)) % 2147483647; seed = seed || 7;
+  const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pool = MISSION_POOL.slice(), list = [];
+  while (list.length < 3) {
+    const m = pool.splice(Math.floor(r() * pool.length), 1)[0], n = m[2][Math.floor(r() * m[2].length)];
+    list.push({ kind: m[0], need: n, have: 0, done: false, text: m[1].replace('{n}', n).replace('{s}', n > 1 ? 's' : '') });
+  }
+  META.missions = { date: today, list, chest: false }; store.set('missions', META.missions); return META.missions;
+}
+function mission(kind, v = 1, isMax = false) {
+  const ms = loadMissions(); let changed = false;
+  for (const m of ms.list) if (m.kind === kind && !m.done) {
+    m.have = isMax ? Math.max(m.have, v) : m.have + v; changed = true;
+    if (m.have >= m.need) { m.done = true; bb(15); earn(200); S.fanfare(); G.badgeToast = { name: 'Daily mission complete!', desc: `${m.text}  ·  +15 BB, +$200`, t: 0 }; }
+  }
+  if (!ms.chest && ms.list.every(m => m.done)) { ms.chest = true; bb(40); earn(500); banner('ALL DAILY MISSIONS DONE!', 'Bonus chest: +40 Bucko Bucks and +$500', '#9fe0ff'); }
+  if (changed) store.set('missions', ms);
+}
+/* login streak: come back on consecutive days and the reward grows */
+(function loginStreak() {
+  const today = new Date().toDateString(), y = new Date(Date.now() - 864e5).toDateString(), L = META.login;
+  if (L.last === today) return;
+  L.streak = L.last === y ? L.streak + 1 : 1; L.last = today; store.set('login', L);
+  const reward = 10 * Math.min(L.streak, 7);
+  META.bb += reward; store.set('bb', META.bb);
+  META.loginReward = { streak: L.streak, reward, next: 10 * Math.min(L.streak + 1, 7) };
+})();
 function collect(b) {                      // a Bucko you got out correctly goes in the Buckodex
   if (CAREER.dex.includes(b.name)) return;
   CAREER.dex.push(b.name); store.set('dex', CAREER.dex);
@@ -516,7 +574,7 @@ function badge(id) {
   if (CAREER.badges.includes(id)) return;
   const b = BADGES.find(x => x[0] === id); if (!b) return;
   CAREER.badges.push(id); store.set('badges', CAREER.badges);
-  G.badgeToast = { name: b[1], desc: b[2], t: 0 }; addXP(50);
+  G.badgeToast = { name: b[1], desc: b[2] + '  ·  +10 BB', t: 0 }; addXP(50); bb(10);
 }
 function pop(x, y, text, color = '#fff', size = 22) { G.pops.push({ x, y, text, color, size, t: 0 }); }
 function confetti(x, y, n) { for (let i = 0; i < n; i++) G.parts.push({ x, y, vx: rnd(-260, 260), vy: rnd(-360, -60), life: rnd(0.8, 1.6), t: 0, c: pick(['#ffe14d', '#7dff7d', '#ff6a6a', '#6ad1ff', '#fff']), s: 4, kind: 'spark', grav: true }); }
@@ -589,7 +647,7 @@ function updateEvents(dt) {
     r.x += r.vx * dt; r.y += r.vy * dt; const bx = r.x, by = r.y; pushOut(r, 12); if (Math.abs(r.x - bx) + Math.abs(r.y - by) > 1) r.turn = 0;
     for (const b of G.buckos) if ((b.state === 'shop' || b.state === 'wait') && dist(b, r) < 170) { b.target = { x: r.x, y: r.y }; b.pause = 0; if (!(b.bumpCD > 0) && Math.random() < 0.01) { b.bumpCD = 6; say(b, 'raccoon', 1.6); } }
     if (dist(r, p) < 36) {
-      earn(250); addXP(30); S.fanfare(); confetti(r.x, r.y, 50); spawnCoins(r.x, r.y, 10);
+      earn(250); addXP(30); mission('raccoon'); S.fanfare(); confetti(r.x, r.y, 50); spawnCoins(r.x, r.y, 10);
       banner('RACCOON CAUGHT!', 'Animal control pays the $250 bounty', '#7dff7d'); G.raccoon = null;
     } else if (r.t <= 0) { paSay('The raccoon has left the building. With a bag of birdseed.'); G.raccoon = null; }
   }
@@ -680,7 +738,7 @@ function spawnCoins(x, y, n) {           // world point -> flying to the wallet 
 }
 function reopen() { G.level = Math.min(G.level + 1, LADDER.length - 1); G.strikes = Math.min(MAX_STRIKES - 1, Math.floor((G.extra || 0) / 2)); G.extra = 0; G.tickets = 0; G.day++; startDay(); M.start(); }
 function primary() {                       // Space / Enter: the obvious next thing on each screen
-  if (G.state === 'title') { if (G.showBadges) G.showBadges = false; else newGame(); }
+  if (G.state === 'title') { if (META.loginReward) META.loginReward = null; else if (G.showBadges || G.showUpgrades || G.showMissions) G.showBadges = G.showUpgrades = G.showMissions = false; else newGame(); }
   else if (G.state === 'intro') openDoors();
   else if (G.state === 'summary') G.state = 'shop';
   else if (G.state === 'shop') { G.day++; startDay(); }
@@ -761,7 +819,7 @@ function stepToward(o, t, sp, dt) {
 }
 function patienceFor(b) {
   const base = b.sneaky ? rnd(25, 40) : rnd(60, 100);
-  return base * Math.max(0.6, 1 - 0.05 * (G.day - 1));
+  return base * Math.max(0.6, 1 - 0.05 * (G.day - 1)) * (1 + 0.1 * upL('patience'));
 }
 function gotIt(b, quiet) {
   b.has = true; if (b.state !== 'chain') b.state = 'wait'; b.target = null;
@@ -882,7 +940,7 @@ function update(dt) {
       const wasRunner = b.state === 'runner';
       if (p.chain.length < maxLine()) {
         b.state = 'chain'; b.lure = 0; p.chain.push(b); S.join(); buzz(15);
-        if (wasRunner) { say(b, 'caught', 1.8); pop(b.x, b.y - 52, 'CAUGHT!', '#7dff7d', 22); questTick('catch', 1); career('caught', 1); addXP(15); } else say(b, 'join', 1.6);
+        if (wasRunner) { say(b, 'caught', 1.8); pop(b.x, b.y - 52, 'CAUGHT!', '#7dff7d', 22); questTick('catch', 1); career('caught', 1); addXP(15); mission('catch'); } else say(b, 'join', 1.6);
       } else if (wasRunner) { b.state = 'wait'; b.patience = 15; b.cool = 1.5; say(b, 'caught', 1.8); pop(b.x, b.y - 52, 'STOPPED', '#7dff7d', 20); questTick('catch', 1); }
       else if (G.clock - G.fullT > 1.5) { G.fullT = G.clock; pop(p.x, p.y - 56, `LINE FULL (${maxLine()})`, '#ffcc00', 18); S.nope(); }
     }
@@ -934,7 +992,7 @@ function update(dt) {
       else if (!b.has) { if (b.nag <= 0) { b.nag = 2.5; say(b, 'notdone', 2); pop(b.x, b.y - 52, 'NOTHING TO SCAN', '#ffcc00', 17); S.nope(); } }
       else {
         CASHIERS[lane].busy = 0.4;
-        const need = 1.6 * (G.perks.scanner ? 0.5 : 1);
+        const need = scanNeed();
         if (b.type === 'coupon') { b.scanT += dt; if (b.scanT >= need) scanned(b); else if (Math.random() < dt * 6) S.tone(1200, 0.03, 'square', 0.04); }
         else scanned(b);
       }
@@ -994,7 +1052,8 @@ function leave(b, door) {
   if (G.trip > 1) v += 15 * (G.trip - 1);
   if (b.golden) { v = v * 5 + 100; banner('GOLDEN BUCKO!', `${b.name} tipped like royalty  ·  x5`, '#ffe14d'); S.jackpot(); confetti(b.x, b.y - 30, 60); badge('golden'); }
   addXP(b.golden ? 60 : 10 + Math.min(G.streak, 10));
-  career('out', 1); if (G.streak >= 10) badge('streak10'); if (!G.badgeToast) collect(b); else setTimeout(() => collect(b), 3500);
+  career('out', 1); if (G.streak >= 10) badge('streak10');
+  bb(b.golden ? 3 : 1, true); mission('out'); mission('streak', G.streak, true); if (b.golden) mission('golden'); if (!G.badgeToast) collect(b); else setTimeout(() => collect(b), 3500);
   earn(v); S.out(); S.coin(); say(b, 'thanks', 1.2); b.happy = true;
   const SHOUT = { 3: 'NICE!', 5: 'OPE-TASTIC!', 8: 'BUCKTACULAR!', 12: 'UNBUCKLIEVABLE!', 16: 'FLANNEL FURY!', 20: 'LEGENDARY BUCKO HANDLER!', 30: 'ARE YOU EVEN HUMAN?!' };
   if (SHOUT[G.streak]) { pop(G.player.x, G.player.y - 100, SHOUT[G.streak], '#ffe14d', 34); S.fanfare(); } spawnCoins(b.x, b.y, Math.min(9, 3 + G.streak));
@@ -1016,7 +1075,7 @@ function leave(b, door) {
   if (b.type === 'contractor') questTick('contractor', 1);
 }
 function rollTicket() {
-  const r = Math.random();
+  const r = Math.random() * (1 - 0.12 * upL('ticket'));
   if (r < 0.02) return { label: '$2,500!!', cash: 2500, big: true };
   if (r < 0.07) return { label: 'STRIKE PARDON', pardon: true, big: true };
   if (r < 0.15) return { label: '$750', cash: 750, big: true };
@@ -1030,6 +1089,7 @@ function scratch() {
   if (tk.cash) earn(tk.cash);
   if (tk.pardon) { G.strikes = Math.max(0, G.strikes - 1); G.tickets = 0; }
   if (tk.big) { S.jackpot(); buzz([40, 30, 80]); } else S.coin();
+  mission('scratch');
 }
 function endDay(closing) {
   const left = G.buckos.filter(b => b.state !== 'leaving');
@@ -1041,6 +1101,7 @@ function endDay(closing) {
   }
   const bonus = closing ? 0 : Math.round(G.timer) * 5;
   if (bonus) earn(bonus);
+  bb(5); mission('day', G.day + 1, true);
   G.summary = { left: closing ? left.length : 0, bonus, ticket: rollTicket(), scratched: false, scratchT: 0 };
   G.state = 'summary';
 }
@@ -1177,7 +1238,7 @@ function updateAirstrike(dt) {
     if (L.fx === 'nuke') {
       as.lost = G.total; G.total = 0; store.set('total', 0); G.state = 'gameover';
     } else {
-      as.fine = L.fine; fine(L.fine); G.state = 'aftermath';
+      as.fine = Math.round(L.fine * (1 - 0.15 * upL('insure'))); fine(as.fine); G.state = 'aftermath';
     }
     badge('bombed'); if (L.ac === 'B-52') badge('b52'); if (L.fx === 'nuke') badge('nuke');
   }
@@ -1546,7 +1607,7 @@ function drawBucko(b) {
     g.fillStyle = k > 0.5 ? '#3cd06a' : k > 0.25 ? '#ffcc00' : '#ff3b3b'; g.fillRect(b.x - w / 2, b.y + R * 1.25, w * k, 5);
   }
   if (t === 'coupon' && b.has && !b.scanned && b.scanT > 0) {
-    const need = 1.6 * (G.perks.scanner ? 0.5 : 1);
+    const need = scanNeed();
     g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 5; g.beginPath(); g.arc(b.x, b.y, R + 8, 0, 7); g.stroke();
     g.strokeStyle = '#3cff7a'; g.beginPath(); g.arc(b.x, b.y, R + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * b.scanT / need); g.stroke();
   }
@@ -2054,13 +2115,16 @@ function drawTitle(t) {
   text('Let them shop · ring them up · right door · catch the sneaky ones.', 800, 604, 17, '#fff', 'center', '700', null, FB);
   text('Mess up enough and the Bucko Bombers show up - all the way to the B-52.', 800, 634, 16, '#ffb0a0', 'center', '700', null, FB);
   button(620, 690, 360, 80, 'CLOCK IN', newGame, { size: 36 });
-  button(1000, 702, 200, 56, `BADGES + DEX`, () => { G.showBadges = true; }, { size: 18, bg: '#5a4500', bg2: '#8a6d10' });
-  { const r = rankOf(CAREER.xp); g.fillStyle = 'rgba(8,22,14,0.85)'; rr(400, 702, 200, 56, 12); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 2; g.stroke();
-    text('RANK', 500, 716, 10, '#cfe8d6', 'center', '800', null, FB); fitText(RANKS[r][1], 500, 734, 184, 16, '#ffe14d', 'center', '900');
-    const lo = RANKS[r][0], hi = RANKS[r + 1] ? RANKS[r + 1][0] : lo + 1, k = RANKS[r + 1] ? clamp((CAREER.xp - lo) / (hi - lo), 0, 1) : 1;
-    g.fillStyle = 'rgba(255,255,255,0.15)'; g.fillRect(416, 748, 168, 4); g.fillStyle = '#ffe14d'; g.fillRect(416, 748, 168 * k, 4); }
-  g.fillStyle = 'rgba(8,22,14,0.85)'; rr(540, 790, 520, 40, 20); g.fill();
-  text(`Total score  ${money(G.total)}     ·     Best  ${money(G.best)}`, 800, 811, 18, '#fff', 'center', '800', null, FB);
+  const ms = loadMissions(), mDone = ms.list.filter(m => m.done).length;
+  button(400, 690, 200, 38, `MISSIONS ${mDone}/3`, () => { G.showMissions = true; }, { size: 16, bg: '#1d4f7a', bg2: '#2d72ad' });
+  button(400, 734, 200, 38, `UPGRADES · ${META.bb} BB`, () => { G.showUpgrades = true; }, { size: 15, bg: '#1d4f7a', bg2: '#2d72ad' });
+  button(1000, 690, 200, 38, 'BADGES + DEX', () => { G.showBadges = true; }, { size: 16, bg: '#5a4500', bg2: '#8a6d10' });
+  { g.fillStyle = 'rgba(8,22,14,0.85)'; rr(1000, 734, 200, 38, 10); g.fill(); g.strokeStyle = '#ffb08a'; g.lineWidth = 2; g.stroke();
+    text(`STREAK: ${META.login.streak} DAY${META.login.streak > 1 ? 'S' : ''}`, 1100, 753, 15, '#ffb08a', 'center', '900'); }
+  { const r = rankOf(CAREER.xp), lo = RANKS[r][0], hi = RANKS[r + 1] ? RANKS[r + 1][0] : lo + 1, k = RANKS[r + 1] ? clamp((CAREER.xp - lo) / (hi - lo), 0, 1) : 1;
+    g.fillStyle = 'rgba(8,22,14,0.85)'; rr(470, 786, 660, 48, 20); g.fill();
+    text(`${RANKS[r][1]}  ·  Total ${money(G.total)}  ·  Best ${money(G.best)}`, 800, 802, 17, '#fff', 'center', '800', null, FB);
+    g.fillStyle = 'rgba(255,255,255,0.15)'; g.fillRect(560, 820, 480, 5); g.fillStyle = '#ffe14d'; g.fillRect(560, 820, 480 * k, 5); }
   if (!touchy()) {
     g.fillStyle = 'rgba(8,22,14,0.75)'; rr(470, 842, 660, 32, 16); g.fill();
     text('Move WASD  ·  Dash SHIFT  ·  Let go SPACE  ·  Whistle Q  ·  Pause P  ·  Sound M', 800, 859, 14, '#d8e0da', 'center', '700', null, FB);
@@ -2072,9 +2136,56 @@ function drawTitle(t) {
   hit(right - 112, 18, 96, 40, toggleSound);
   drawUpdateBanner(800, 40);
   if (G.showBadges) drawBadges();
+  else if (G.showUpgrades) drawUpgrades();
+  else if (G.showMissions) drawMissions();
+  else if (META.loginReward) drawLogin();
+}
+function overlayDim() { g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(-2000, -2000, 6000, 6000); hit(-2000, -2000, 6000, 6000, () => {}); }   // swallow clicks meant for what's underneath
+function drawUpgrades() {
+  overlayDim(); paper(300, 120, 1000, 740);
+  text('CORPORATE UPGRADES', 800, 168, 32, '#0a7a36');
+  text(`Bucko Bucks: ${META.bb}   ·   permanent - they help every run from now on`, 800, 204, 16, '#1d4f7a', 'center', '800', null, FB);
+  UPGRADES.forEach(([id, name, desc, max], i) => {
+    const l = upL(id), maxed = l >= max, cost = UP_COST[l], cx = 330 + (i % 2) * 475, cy = 226 + Math.floor(i / 2) * 140;
+    g.fillStyle = '#fff'; rr(cx, cy, 460, 126, 12); g.fill(); g.strokeStyle = '#cfd6cc'; g.lineWidth = 2; g.stroke();
+    text(name, cx + 18, cy + 26, 19, '#0a5a2a', 'left');
+    fitText(desc, cx + 18, cy + 52, 260, 14, '#444', 'left', '700', FB);
+    for (let k = 0; k < max; k++) { g.fillStyle = k < l ? '#1fae4b' : '#d5dbd3'; rr(cx + 18 + k * 30, cy + 76, 24, 10, 4); g.fill(); }
+    button(cx + 290, cy + 66, 150, 46, maxed ? 'MAXED' : `${cost} BB`, () => buyUpgrade(id), { size: 18, bg: '#1d4f7a', bg2: '#2d72ad', disabled: maxed || META.bb < cost });
+  });
+  button(650, 790, 300, 52, 'CLOSE', () => { G.showUpgrades = false; }, { size: 20 });
+}
+function drawMissions() {
+  overlayDim(); paper(400, 200, 800, 520);
+  const ms = loadMissions();
+  text('DAILY MISSIONS', 800, 250, 32, '#0a7a36');
+  const h = 24 - new Date().getHours(); text(`New missions in about ${h} hour${h > 1 ? 's' : ''}  ·  each pays 15 BB + $200`, 800, 286, 15, '#555', 'center', '700', null, FB);
+  ms.list.forEach((m, i) => {
+    const y = 316 + i * 100, k = clamp(m.have / m.need, 0, 1);
+    g.fillStyle = m.done ? '#e2f6e6' : '#fff'; rr(440, y, 720, 84, 12); g.fill(); g.strokeStyle = m.done ? '#1fae4b' : '#cfd6cc'; g.lineWidth = 2; g.stroke();
+    text(m.done ? '✓' : String(i + 1), 476, y + 42, 26, m.done ? '#1fae4b' : '#1d4f7a');
+    text(m.text, 510, y + 30, 19, '#222', 'left', '900');
+    g.fillStyle = '#e1e5df'; rr(510, y + 50, 480, 14, 7); g.fill(); g.fillStyle = m.done ? '#1fae4b' : '#2d72ad'; rr(510, y + 50, 480 * k, 14, 7); g.fill();
+    text(`${Math.min(m.have, m.need)}/${m.need}`, 1060, y + 57, 16, '#333', 'center', '900', null, FB);
+  });
+  text(ms.chest ? 'Bonus chest collected - see you tomorrow!' : 'Finish all three for a bonus chest: +40 BB and +$500', 800, 628, 16, ms.chest ? '#1fae4b' : '#8a5a00', 'center', '800', null, FB);
+  button(650, 650, 300, 52, 'CLOSE', () => { G.showMissions = false; }, { size: 20 });
+}
+function drawLogin() {
+  const L = META.loginReward;
+  overlayDim(); paper(500, 260, 600, 400);
+  text(`DAY ${L.streak} STREAK!`, 800, 320, 40, '#c2410c');
+  for (let i = 0; i < 7; i++) {
+    const x = 560 + i * 70, on = i < Math.min(L.streak, 7);
+    g.fillStyle = on ? '#ffb08a' : '#e7e3d6'; rr(x, 360, 60, 70, 10); g.fill(); g.strokeStyle = on ? '#c2410c' : '#cfcabb'; g.lineWidth = 2; g.stroke();
+    text(`D${i + 1}`, x + 30, 380, 12, on ? '#7a2a00' : '#999', 'center', '900', null, FB); text(String(10 * (i + 1)), x + 30, 408, 18, on ? '#7a2a00' : '#aaa', 'center', '900');
+  }
+  text(`+${L.reward} Bucko Bucks for showing up`, 800, 470, 22, '#0a5a2a', 'center', '900', null, FB);
+  text(`Come back tomorrow for ${L.next}. Miss a day and it starts over.`, 800, 506, 16, '#555', 'center', '700', null, FB);
+  button(650, 560, 300, 60, 'COLLECT', () => { META.loginReward = null; S.coin(); }, { size: 24 });
 }
 function drawBadges() {
-  g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(-2000, -2000, 6000, 6000);
+  overlayDim();
   paper(300, 110, 1000, 760);
   text('BADGES', 800, 168, 34, '#0a7a36');
   text(`${CAREER.badges.length}/${BADGES.length} badges  ·  Buckodex ${CAREER.dex.length}/${NAMES.length}  ·  ${CAREER.out} Buckos out all time  ·  ${CAREER.xp} XP`, 800, 204, 16, '#555', 'center', '700', null, FB);
@@ -2146,7 +2257,7 @@ function drawSummary() {
   g.strokeStyle = '#999'; g.setLineDash([6, 5]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 30, y + 104); g.lineTo(x + w - 30, y + 104); g.stroke();
   const s = G.summary;
   const rows = [['BUCKOS REMOVED', String(G.dayRemoved)], ['EARNED TODAY', money2(G.dayCash)], ['EARLY CLOSE BONUS', money2(s.bonus)],
-    ['BEST STREAK', 'x' + Math.max(1, G.bestStreak)], ['11% MAIL-IN REBATE', 'PENDING'], ['GOV STRIKES', `${G.strikes}/${MAX_STRIKES}`], ['NEXT THREAT', threat().ac], ['RANK', RANKS[rankOf(CAREER.xp)][1]]];
+    ['BEST STREAK', 'x' + Math.max(1, G.bestStreak)], ['11% MAIL-IN REBATE', 'PENDING'], ['GOV STRIKES', `${G.strikes}/${MAX_STRIKES}`], ['NEXT THREAT', threat().ac], ['RANK', RANKS[rankOf(CAREER.xp)][1]], ['BUCKO BUCKS', `+${G.dayBB || 0} (${META.bb})`]];
   rows.forEach(([a, b], i) => { g.globalAlpha = clamp((G.stateT - 0.15 - i * 0.12) * 5, 0, 1); text(a, x + 36, y + 134 + i * 30, 16, '#222', 'left', '700', null, FM); text(b, x + w - 36, y + 134 + i * 30, 16, i >= 5 && G.strikes ? '#c0392b' : '#111', 'right', '900', null, FM); });
   g.globalAlpha = clamp((G.stateT - 1.1) * 4, 0, 1);
   g.beginPath(); g.moveTo(x + 30, y + 372); g.lineTo(x + w - 30, y + 372); g.stroke(); g.setLineDash([]);
