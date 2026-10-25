@@ -1,10 +1,10 @@
 {
-  "version": "2.9.1",
+  "version": "2.9.2",
   "minNative": 1,
-  "notes": "Tablets: Buckards now turns with your tablet and fits standing up or sideways (needs the new app download once). The title screen and menus are bigger on tall screens.",
-  "page": "buckards-2.9.1.html",
+  "notes": "Tablets and phones always play SIDEWAYS now: if the screen comes in tall, the game turns itself so you hold it sideways.",
+  "page": "buckards-2.9.2.html",
   "apk": "Buckards.apk",
-  "sha256": "60f7d2685d40de7ebe0fa299204b9171c78b6cdf209f6d4a86a1f8471eee61e9",
-  "size": 270840,
-  "date": "2026-10-25T20:04:55.665Z"
+  "sha256": "e88392900bd0388514d80393e5e41410e63a120c7fecb61d5e4693f27c3fc673",
+  "size": 271391,
+  "date": "2026-10-25T20:08:04.987Z"
 }

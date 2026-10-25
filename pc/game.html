@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.9.1";
+const GR_VERSION = "2.9.2";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Tablets: Buckards now turns with your tablet and fits standing up or sideways (needs the new app download once). The title screen and menus are bigger on tall screens.";
+const GR_NOTES = "Tablets and phones always play SIDEWAYS now: if the screen comes in tall, the game turns itself so you hold it sideways.";
 const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
@@ -46,12 +46,16 @@ let g = cv.getContext('2d');
 /* graphics: 'auto' (drops to low by itself if frames run slow), 'high' or 'low' */
 let gfxMode = (() => { try { return JSON.parse(localStorage.getItem('grenards_gfx')) || 'auto'; } catch (e) { return 'auto'; } })(), autoLow = false;
 const lowFX = () => gfxMode === 'low' || (gfxMode === 'auto' && autoLow);
-let cw, ch, dpr, sc, ox, oy, hs, hx, hudH, hudCut = 0, scFit, ov, vignette = null, compactHUD = false;
+let cw, ch, dpr, sc, ox, oy, hs, hx, hudH, hudCut = 0, scFit, ov, vignette = null, compactHUD = false, ROT = false;
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, lowFX() ? 1 : 1.75);
-  cw = innerWidth; ch = innerHeight;
+  // A tall touch screen (a tablet held upright, or one that won't rotate for us) gets the game drawn turned 90 degrees,
+  // so it always plays sideways. cw/ch are the game's own (sideways) width and height either way.
+  ROT = (MOBILE || matchMedia('(pointer:coarse)').matches) && innerHeight > innerWidth * 1.05;
+  cw = ROT ? innerHeight : innerWidth; ch = ROT ? innerWidth : innerHeight;
   cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
   cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+  cv.style.transformOrigin = '0 0'; cv.style.transform = ROT ? `translateX(${ch}px) rotate(90deg)` : '';
   sc = ch > cw ? Math.min(cw / 860, ch / H) : Math.min(cw / W, ch / H); ox = (cw - W * sc) / 2; oy = (ch - H * sc) / 2;   // title: whole 1600x900, or zoomed on the menu column when the screen stands up
   hudCut = cw < 1150 ? 216 : 0;                                                   // narrow screens: no logo, bigger HUD
   hs = Math.min(cw / (W - hudCut), 1); hx = (cw - (W - hudCut) * hs) / 2 - hudCut * hs; hudH = 60 * hs;
@@ -1043,9 +1047,9 @@ function primary() {                       // Space / Enter: the obvious next th
 }
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
-  mouse.x = e.clientX; mouse.y = e.clientY; mouse.down = true;
+  mouse.x = ptX(e); mouse.y = ptY(e); mouse.down = true;
   if (S.on) { S.ensure(); if (!isAir()) M.start(); }
-  const px = e.clientX, py = e.clientY;
+  const px = ptX(e), py = ptY(e);
   for (let i = HITS.length - 1; i >= 0; i--) { const h = HITS[i]; if (px >= h.x1 && px <= h.x2 && py >= h.y1 && py <= h.y2) { h.fn(); return; } }
   if (G.state === 'play') {
     const B = bigBtns();
@@ -1060,7 +1064,8 @@ cv.addEventListener('pointerdown', e => {
   }
   if (G.state === 'intro') openDoors();
 }, { passive: false });
-cv.addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; if (e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
+const ptX = e => ROT ? e.clientY : e.clientX, ptY = e => ROT ? ch - e.clientX : e.clientY;   // screen point -> game point (undoes the sideways turn)
+cv.addEventListener('pointermove', e => { mouse.x = ptX(e); mouse.y = ptY(e); if (e.pointerId === joy.id) { joy.x = ptX(e); joy.y = ptY(e); } });
 const endJoy = e => { mouse.down = false; if (e.pointerType === 'touch') mouse.x = mouse.y = -1; if (e.pointerId === joy.id) { joy.id = null; joy.upAt = performance.now(); } };
 cv.addEventListener('pointerup', endJoy); cv.addEventListener('pointercancel', endJoy);
 cv.addEventListener('contextmenu', e => e.preventDefault());
