@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.5.0";
+const GR_VERSION = "2.5.1";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Bucko Bucks + permanent Corporate Upgrades, 3 Daily Missions with a bonus chest, and a daily login streak.";
+const GR_NOTES = "Phone controls: the joystick now stays put in the bottom-right corner, and the LET GO / DASH / WHISTLE buttons moved to the bottom left.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -693,7 +693,11 @@ function hit(x, y, w, h, fn) {
   const m = g.getTransform(), a = m.transformPoint({ x, y }), b = m.transformPoint({ x: x + w, y: y + h });
   HITS.push({ x1: Math.min(a.x, b.x) / dpr, y1: Math.min(a.y, b.y) / dpr, x2: Math.max(a.x, b.x) / dpr, y2: Math.max(a.y, b.y) / dpr, fn });
 }
-function bigBtns() { const r = clamp(Math.min(cw, ch) * 0.11, 34, 58); return { r, dash: { x: cw - r * 3.4 - 14, y: ch - r * 0.8 - 14 }, go: { x: cw - r - 14, y: ch - r - 14 }, wh: { x: cw - r - 14, y: ch - r * 3.2 - 14 } }; }
+function bigBtns() {
+  const r = clamp(Math.min(cw, ch) * 0.11, 34, 58), X = x => touchy() ? cw - x : x;   // touch: mirrored to the left
+  return { r, dash: { x: X(cw - r * 3.4 - 14), y: ch - r * 0.8 - 14 }, go: { x: X(cw - r - 14), y: ch - r - 14 }, wh: { x: X(cw - r - 14), y: ch - r * 3.2 - 14 } };
+}
+function joyBase() { const R = clamp(Math.min(cw, ch) * 0.16, 52, 80); return { R, x: cw - R - 28, y: ch - R - 28 }; }
 
 addEventListener('keydown', e => {
   if (keys[e.code]) return; keys[e.code] = true;
@@ -757,7 +761,11 @@ cv.addEventListener('pointerdown', e => {
     if (Math.hypot(px - B.go.x, py - B.go.y) < B.r + 10) { letGo(); return; }
     if (G.perks.whistle && Math.hypot(px - B.wh.x, py - B.wh.y) < B.r * 0.8 + 10) { blowWhistle(); return; }
     if (touchy() && Math.hypot(px - B.dash.x, py - B.dash.y) < B.r * 0.75 + 8) { dash(); return; }
-    if (joy.id === null) { joy.id = e.pointerId; joy.ox = joy.x = px; joy.oy = joy.y = py; try { cv.setPointerCapture(e.pointerId); } catch (_) {} }
+    if (joy.id === null && (!touchy() || px > cw * 0.45)) {   // touch: right side only, stick stays put
+      const J = joyBase(); joy.id = e.pointerId; joy.x = px; joy.y = py;
+      if (touchy()) { joy.ox = J.x; joy.oy = J.y; } else { joy.ox = px; joy.oy = py; }
+      try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+    }
     return;
   }
   if (G.state === 'intro') openDoors();
@@ -772,9 +780,9 @@ function moveInput() {
   if (keys.KeyA || keys.ArrowLeft) mx--; if (keys.KeyD || keys.ArrowRight) mx++;
   if (keys.KeyW || keys.ArrowUp) my--; if (keys.KeyS || keys.ArrowDown) my++;
   if (joy.id !== null) {
-    const dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), max = 64;
+    const fixed = touchy(), dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), max = fixed ? joyBase().R : 64;
     if (m > 6) { const k = Math.min(m, max) / max; mx = dx / m * k; my = dy / m * k; }
-    if (m > max) { joy.ox = joy.x - dx / m * max; joy.oy = joy.y - dy / m * max; }   // base drags along
+    if (!fixed && m > max) { joy.ox = joy.x - dx / m * max; joy.oy = joy.y - dy / m * max; }   // mouse: base drags along
   }
   const m = Math.hypot(mx, my); if (m > 1) { mx /= m; my /= m; }
   return { mx, my };
@@ -1971,13 +1979,19 @@ function drawMinimap() {
 function drawControls() {
   if (G.state !== 'play') return;
   const B = bigBtns();
-  if (joy.id !== null) {
+  if (touchy()) {                              // fixed stick, always shown, knob can't leave the ring
+    const J = joyBase(), on = joy.id !== null;
+    g.fillStyle = on ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.1)'; g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 3;
+    g.beginPath(); g.arc(J.x, J.y, J.R, 0, 7); g.fill(); g.stroke();
+    let kx = 0, ky = 0;
+    if (on) { const dx = joy.x - J.x, dy = joy.y - J.y, m = Math.hypot(dx, dy), k = m > J.R ? J.R / m : 1; kx = dx * k; ky = dy * k; }
+    g.fillStyle = on ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)'; g.beginPath(); g.arc(J.x + kx, J.y + ky, J.R * 0.42, 0, 7); g.fill();
+    if (!on && G.day === 1 && G.timer > G.dayLen - 20) { g.fillStyle = 'rgba(255,255,255,0.85)'; g.font = `700 14px ${FB}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('drag here to walk', J.x, J.y - J.R - 16); }
+  } else if (joy.id !== null) {
     g.fillStyle = 'rgba(255,255,255,0.12)'; g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 3;
     g.beginPath(); g.arc(joy.ox, joy.oy, 64, 0, 7); g.fill(); g.stroke();
     const dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), k = m > 64 ? 64 / m : 1;
     g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.arc(joy.ox + dx * k, joy.oy + dy * k, 28, 0, 7); g.fill();
-  } else if (touchy() && G.day === 1 && G.timer > G.dayLen - 20) {
-    g.fillStyle = 'rgba(255,255,255,0.8)'; g.font = `700 14px ${FB}`; g.textAlign = 'left'; g.fillText('drag anywhere to walk', 14, ch - 16);
   }
   const on = G.player.chain.length > 0;
   if (touchy() || on) {

@@ -1,10 +1,10 @@
 {
-  "version": "2.5.0",
+  "version": "2.5.1",
   "minNative": 1,
-  "notes": "Bucko Bucks + permanent Corporate Upgrades, 3 Daily Missions with a bonus chest, and a daily login streak.",
-  "page": "buckards-2.5.0.html",
+  "notes": "Phone controls: the joystick now stays put in the bottom-right corner, and the LET GO / DASH / WHISTLE buttons moved to the bottom left.",
+  "page": "buckards-2.5.1.html",
   "apk": "Buckards.apk",
-  "sha256": "1fc24df94a09e26fbf27ac22da93b381696b1801ae9b72c4bcac3f91702de869",
-  "size": 188846,
-  "date": "2026-10-25T00:25:26.695Z"
+  "sha256": "81ab00f1156035c012b9e35a2469530aa5a188412308337912a24a81217c0bf5",
+  "size": 189999,
+  "date": "2026-10-25T00:34:20.062Z"
 }
