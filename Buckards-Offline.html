@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.8.0";
+const GR_VERSION = "2.8.1";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Perks and upgrades now have TIERS: finish one and a bigger, pricier tier unlocks (Running Shoes to Track Spikes to Rocket Sneakers to Jet Boots...). Speed tips: the faster a Bucko gets in and out, the bigger the tip - under 25 seconds is a LIGHTNING TIP. New daily mission for lightning tips. Built for the long haul: 30 ranks, 20 new long-term badges, 70 more things in the Company Store and a new LOT tab that decorates the outside of your store.";
+const GR_NOTES = "Your run now saves at the start of every day - updates and closing the game never lose it (CONTINUE on the title screen). New save codes in Settings move all your progress to another website or device.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -440,14 +440,18 @@ function dayCfg(d) {
 }
 function rollType(w) { let s = w.reduce((a, b) => a + b[1], 0) * Math.random(); for (const [t, k] of w) if ((s -= k) <= 0) return t; return 'regular'; }
 
-function newGame() {
+const RUN_KEYS = ['day', 'strikes', 'cash', 'removed', 'bestStreak', 'level', 'quest', 'perks', 'tickets', 'clean', 'extra', 'boost'];
+function saveRun() { const r = {}; for (const k of RUN_KEYS) r[k] = G[k]; store.set('run', r); }
+function newGame(resume) {
+  if (!resume) store.set('run', null);
   Object.assign(G, { dayBB: 0, tickets: 0, clean: 0, coins: [], banner: null, showCash: 0, extra: 0, day: 1, strikes: 0, cash: 100 * upL('wallet'), removed: 0, newBest: false, streak: 0, bestStreak: 0, snap: null, level: 0, quest: null,
     perks: { shoes: 0, lanyard: 0, scanner: upL('sscanner'), whistle: upL('swhistle'), map: upL('smap'), bribe: 0 } });
-  startDay();
+  if (resume) Object.assign(G, JSON.parse(JSON.stringify(resume)), { perks: Object.assign({}, G.perks, resume.perks) });
+  startDay(!!resume);
 }
-function startDay() {
-  G.boost = null; G.waived = false;                 // a boost you armed in the Company Store gets used up today
-  if (META.armed && (META.boosts[META.armed] || 0) > 0) {
+function startDay(resumed) {
+  if (!resumed) G.boost = null; G.waived = false;   // a boost you armed in the Company Store gets used up today (a resumed day keeps its own)
+  if (!resumed && META.armed && (META.boosts[META.armed] || 0) > 0) {
     G.boost = META.armed.split(':')[1]; META.boosts[META.armed]--;
     if (!META.boosts[META.armed]) META.armed = null; saveShop();
     if (G.boost === 'pardon') G.strikes = Math.max(0, G.strikes - 1);
@@ -477,7 +481,7 @@ function startDay() {
     const n = G.day === 1 ? 1 : G.day < 4 ? 2 : 3;
     for (let i = 0; i < n; i++) G.events.push({ kind: G.day === 1 ? 'spill' : kinds[i], at: c.time * (0.75 - i * 0.22) - rnd(0, 8) }); }
   if (G.day >= 5) badge('day5'); if (G.day >= 10) badge('day10'); if (G.day >= 15) badge('day15'); if (G.day >= 20) badge('day20');
-  G.state = 'intro';
+  G.state = 'intro'; saveRun();
 }
 
 /* ---- quests: one at a time, they carry over between days */
@@ -984,7 +988,7 @@ function spawnCoins(x, y, n) {           // world point -> flying to the wallet 
 }
 function reopen() { G.level = Math.min(G.level + 1, LADDER.length - 1); G.strikes = Math.min(MAX_STRIKES - 1, Math.floor((G.extra || 0) / 2)); G.extra = 0; G.tickets = 0; G.day++; startDay(); M.start(); }
 function primary() {                       // Space / Enter: the obvious next thing on each screen
-  if (G.state === 'title') { if (META.loginReward) META.loginReward = null; else if (G.showBadges || G.showUpgrades || G.showMissions || G.showSettings) G.showBadges = G.showUpgrades = G.showMissions = G.showSettings = false; else newGame(); }
+  if (G.state === 'title') { if (META.loginReward) META.loginReward = null; else if (G.showBadges || G.showUpgrades || G.showMissions || G.showSettings) G.showBadges = G.showUpgrades = G.showMissions = G.showSettings = false; else { const run = store.get('run', null); newGame(run && run.day ? run : undefined); } }
   else if (G.state === 'intro') openDoors();
   else if (G.state === 'summary') G.state = 'shop';
   else if (G.state === 'shop') { G.day++; startDay(); }
@@ -1501,7 +1505,7 @@ function updateAirstrike(dt) {
   }
   if (t > as.end && G.state === 'airstrike') {
     if (L.fx === 'nuke') {
-      as.lost = G.total; G.total = 0; store.set('total', 0); G.state = 'gameover';
+      as.lost = G.total; G.total = 0; store.set('total', 0); G.state = 'gameover'; store.set('run', null);
     } else {
       as.fine = Math.round(L.fine * (1 - 0.15 * upL('insure'))); fine(as.fine); G.state = 'aftermath';
     }
@@ -2645,7 +2649,13 @@ function drawTitle(t) {
   text('Get the Buckos OUT. Correctly.', 800, 562, 34, '#ffe14d', 'center', '900', '#06331a');
   text('Let them shop · ring them up · right door · catch the sneaky ones.', 800, 604, 17, '#fff', 'center', '700', null, FB);
   text('Mess up enough and the Bucko Bombers show up - all the way to the B-52.', 800, 634, 16, '#ffb0a0', 'center', '700', null, FB);
-  button(620, 690, 360, 80, 'CLOCK IN', newGame, { size: 36 });
+  const run = store.get('run', null);
+  if (run && run.day) {                              // a saved run: carry on, or (two taps) start over
+    button(620, 690, 360, 54, `CONTINUE · DAY ${run.day}`, () => newGame(run), { size: 28 });
+    const sure = G.newRunArm && G.clock - G.newRunArm < 3;
+    button(620, 750, 360, 30, sure ? 'TAP AGAIN TO START OVER AT DAY 1' : 'NEW RUN (start over)', () => { if (sure) newGame(); else G.newRunArm = G.clock; },
+      { size: 13, bg: sure ? '#8a1a1a' : '#33503d', bg2: sure ? '#c0392b' : '#4a6f55' });
+  } else button(620, 690, 360, 80, 'CLOCK IN', () => newGame(), { size: 36 });
   const ms = loadMissions(), mDone = ms.list.filter(m => m.done).length;
   button(400, 690, 200, 38, `MISSIONS ${mDone}/3`, () => { G.showMissions = true; }, { size: 16, bg: '#1d4f7a', bg2: '#2d72ad' });
   button(400, 734, 200, 38, `STORE · ${META.bb} BB`, () => { G.showUpgrades = true; }, { size: 16, bg: '#8a4a00', bg2: '#c26a00' });
@@ -2995,16 +3005,37 @@ function drawSettings(close) {
   seg(Rx, 218 + row * 5, 'FPS counter', ['OFF', 'ON'], SET.fps ? 1 : 0, i => set('fps', !!i));
   seg(Rx, 218 + row * 6, 'Phone zoom', ['FAR', 'NORMAL', 'CLOSE'], SET.zoom, i => set('zoom', i));
   head('DATA', Rx, 560);
+  button(Rx, 582, 195, 44, 'COPY SAVE CODE', exportSave, { size: 14, bg: '#1d4f7a', bg2: '#2d72ad' });
+  button(Rx + 205, 582, 195, 44, 'LOAD SAVE CODE', importSave, { size: 14, bg: '#1d4f7a', bg2: '#2d72ad' });
+  if (G.saveNote && G.clock - G.saveNote.t < 4) text(G.saveNote.text, Rx + 200, 734, 13, '#1fae4b', 'center', '900', null, FB);
   const armed = G.resetArm && G.clock - G.resetArm < 4;
-  button(Rx, 582, 400, 46, armed ? 'TAP AGAIN TO ERASE EVERYTHING' : 'RESET ALL PROGRESS', () => {
+  button(Rx, 636, 400, 40, armed ? 'TAP AGAIN TO ERASE EVERYTHING' : 'RESET ALL PROGRESS', () => {
     if (!armed) { G.resetArm = G.clock; return; }
     try { Object.keys(localStorage).filter(k => k.startsWith('grenards_') && k !== 'grenards_settings').forEach(k => localStorage.removeItem(k)); } catch (e) {}
     location.reload();
-  }, { size: armed ? 15 : 17, bg: '#8a1a1a', bg2: '#c0392b' });
-  text('Erases scores, Bucko Bucks, the store, badges and the Buckodex.', Rx + 200, 644, 12, '#777', 'center', '700', null, FB);
-  text('Buckards v' + (APP && APP.version ? APP.version() : GR_VERSION) + '  ·  minimap: tap its - to tuck it away', Rx + 200, 666, 12, '#777', 'center', '700', null, FB);
-  if (touchy()) text('Phone tip: touch anywhere and drag to walk. Double-tap and hold to dash.', 800, 716, 14, '#555', 'center', '700', null, FB);
+  }, { size: armed ? 14 : 15, bg: '#8a1a1a', bg2: '#c0392b' });
+  text('Save code = all your progress. Load it on another website or device.', Rx + 200, 692, 12, '#777', 'center', '700', null, FB);
+  text('Buckards v' + (APP && APP.version ? APP.version() : GR_VERSION) + '  ·  minimap: tap its - to tuck it away', Rx + 200, 712, 12, '#777', 'center', '700', null, FB);
+  if (touchy()) text('Phone tip: drag anywhere to walk, double-tap to dash.', L + 200, 650, 13, '#555', 'center', '700', null, FB);
   button(650, 760, 300, 56, 'DONE', close, { size: 22 });
+}
+function exportSave() {
+  const data = {}; try { for (const k of Object.keys(localStorage)) if (k.startsWith('grenards_')) data[k] = localStorage.getItem(k); } catch (e) {}
+  const bytes = new TextEncoder().encode(JSON.stringify(data)); let bin = ''; for (const x of bytes) bin += String.fromCharCode(x);
+  const code = 'BUCKARDS1:' + btoa(bin);
+  const done = () => { G.saveNote = { text: 'Save code copied! Paste it into LOAD SAVE CODE on the other one.', t: G.clock }; };
+  try { navigator.clipboard.writeText(code).then(done, () => { prompt('Copy your save code:', code); done(); }); } catch (e) { prompt('Copy your save code:', code); done(); }
+}
+function importSave() {
+  const code = (prompt('Paste your Buckards save code here.\nThis REPLACES the progress on this device.') || '').trim();
+  if (!code) return;
+  try {
+    if (!code.startsWith('BUCKARDS1:')) throw 0;
+    const data = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(code.slice(10)), ch => ch.charCodeAt(0))));   // (not escape(): that name is the runaway-Bucko function)
+    for (const k of Object.keys(localStorage)) if (k.startsWith('grenards_')) localStorage.removeItem(k);
+    for (const [k, v] of Object.entries(data)) if (k.startsWith('grenards_')) localStorage.setItem(k, v);
+    location.reload();
+  } catch (e) { alert("That doesn't look like a Buckards save code. Copy the whole thing and try again."); }
 }
 function drawPause() {
   if (G.showSettings) { drawSettings(() => { G.showSettings = false; }); return; }
