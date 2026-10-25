@@ -1,10 +1,10 @@
 {
-  "version": "2.8.3",
+  "version": "2.8.4",
   "minNative": 1,
-  "notes": "Buckards is now also on Google Firebase at buckards-game.web.app, installable and playable offline there too.",
-  "page": "buckards-2.8.3.html",
+  "notes": "Added a parody disclaimer: Buckards is not affiliated with or endorsed by any real store.",
+  "page": "buckards-2.8.4.html",
   "apk": "Buckards.apk",
-  "sha256": "98e455f65974e893e93efa8d1828ad6b885966d781cb857496204f2030a10d93",
-  "size": 260107,
-  "date": "2026-10-25T05:50:14.799Z"
+  "sha256": "c085d87bac30f2c290ce93774fb04973c140cd7c8828af697ac00c82e3d4cdde",
+  "size": 260357,
+  "date": "2026-10-25T06:31:27.835Z"
 }

@@ -28,9 +28,10 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.8.3";
+const GR_VERSION = "2.8.4";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Buckards is now also on Google Firebase at buckards-game.web.app, installable and playable offline there too.";
+const GR_NOTES = "Added a parody disclaimer: Buckards is not affiliated with or endorsed by any real store.";
+const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -2672,6 +2673,7 @@ function drawTitle(t) {
   }
   const right = Math.min(xr, 1600);
   text('v' + (APP && APP.version ? APP.version() : GR_VERSION), right - 16, 885, 13, 'rgba(255,255,255,0.7)', 'right', '700', null, FB);
+  text(DISCLAIMER, Math.max(xl, 0) + 16, 885, 12, 'rgba(255,255,255,0.6)', 'left', '700', null, FB);
   g.fillStyle = 'rgba(8,22,14,0.75)'; rr(right - 112, 18, 96, 40, 10); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.3)'; g.lineWidth = 2; g.stroke();
   text(S.on ? 'SOUND ON' : 'SOUND OFF', right - 64, 39, 12, '#fff', 'center', '800', null, FB);
   hit(right - 112, 18, 96, 40, toggleSound);
@@ -2984,6 +2986,7 @@ function seg(x, y, label, opts, cur, pick) {         // a label and a row of cho
 function drawSettings(close) {
   overlayDim(); paper(360, 110, 880, 740);
   text('SETTINGS', 800, 152, 34, '#0a7a36');
+  text(DISCLAIMER, 800, 178, 12, '#888', 'center', '700', null, FB);
   const head = (t, x, y) => { text(t, x, y, 15, '#1d4f7a', 'left', '900'); g.fillStyle = '#cfd6cc'; g.fillRect(x, y + 12, 400, 2); };
   const L = 390, Rx = 820, row = 46, set = (k, v) => { SET[k] = v; saveSet(); };
   head('AUDIO', L, 196);
