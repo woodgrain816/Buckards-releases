@@ -1,10 +1,10 @@
 {
-  "version": "2.5.1",
+  "version": "2.6.0",
   "minNative": 1,
-  "notes": "Phone controls: the joystick now stays put in the bottom-right corner, and the LET GO / DASH / WHISTLE buttons moved to the bottom left.",
-  "page": "buckards-2.5.1.html",
+  "notes": "The Buckards Company Store: 100+ things to buy with Bucko Bucks - 20 hats, 15 vests, 12 pets that follow you, 10 trails, 8 cart paint jobs, 12 titles, 12 one-day boosts and 12 new upgrades. Daily half-off deal and a Shopaholic cash bonus. Plus a real Settings menu (volume, joystick side and size, minimap, name tags, vibration, FPS) and a minimap you can tuck away.",
+  "page": "buckards-2.6.0.html",
   "apk": "Buckards.apk",
-  "sha256": "81ab00f1156035c012b9e35a2469530aa5a188412308337912a24a81217c0bf5",
-  "size": 189999,
-  "date": "2026-10-25T00:34:20.062Z"
+  "sha256": "003d419afe704d92534dd7b417272563e2126dd27a64162e8b5c59d0273d65e6",
+  "size": 227922,
+  "date": "2026-10-25T00:49:50.996Z"
 }
