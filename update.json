@@ -1,10 +1,10 @@
 {
-  "version": "2.3.1",
+  "version": "2.4.0",
   "minNative": 1,
-  "notes": "Aircraft remakes: camouflage, control surfaces, canopy frames, and missiles, bombs and fuel tanks under the wings.",
-  "page": "buckards-2.3.1.html",
+  "notes": "Funnier: Buckos babble and crack jokes, conga-line chatter, cashier comebacks, surnames, store events (oil spill, free hot dogs, church bus, raccoon!), streak shout-outs, happy hops, dash (Shift), Bucko Bomber radio chatter. Plus the Buckodex (collect all 32 Buckos) and a free Lucky Bucko scratch ticket every day.",
+  "page": "buckards-2.4.0.html",
   "apk": "Buckards.apk",
-  "sha256": "5b4d1ae52cda079592c50ae3f80ae7fe7265eed56197769d7e5afefbae3ed2aa",
-  "size": 163997,
-  "date": "2026-10-24T23:59:03.677Z"
+  "sha256": "2a8377b0be830aabf26b3b23092cf8654fe7de00b2fafda5294a246c92939095",
+  "size": 180753,
+  "date": "2026-10-25T00:05:31.758Z"
 }

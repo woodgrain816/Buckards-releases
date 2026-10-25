@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.3.1";
+const GR_VERSION = "2.4.0";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Aircraft remakes: camouflage, control surfaces, canopy frames, and missiles, bombs and fuel tanks under the wings.";
+const GR_NOTES = "Funnier: Buckos babble and crack jokes, conga-line chatter, cashier comebacks, surnames, store events (oil spill, free hot dogs, church bus, raccoon!), streak shout-outs, happy hops, dash (Shift), Bucko Bomber radio chatter. Plus the Buckodex (collect all 32 Buckos) and a free Lucky Bucko scratch ticket every day.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -292,7 +292,20 @@ const TYPES = {
 const R = 17;
 const LINES = {
   idle: ['Ope!', 'You betcha', 'Just lookin\'', 'Is that on sale?', 'Uff da', 'Whaddya know', 'Gonna need a bigger truck',
-    'Ope, lemme sneak past ya', 'Honey\'s gonna kill me', 'They moved everything again', '11% rebate, baby!', 'Where\'s the bathroom?'],
+    'Ope, lemme sneak past ya', 'Honey\'s gonna kill me', 'They moved everything again', '11% rebate, baby!', 'Where\'s the bathroom?',
+    'I came in for one thing', 'Is it supposed to rain Thursday?', 'Gonna fix the deck this weekend', 'Not bad, not bad',
+    'How \'bout them Vikings?', 'I could go for a hot dog', 'This place is bigger than my town', 'My cousin works here. Somewhere.',
+    'Oh for cute!', 'Well that\'s different', 'I\'m not lost, I\'m browsing', 'They got a sale on sump pumps!',
+    'Don\'t tell my wife about the grill', 'Is that a 2x4 or a 2x6?', 'Back in my day, nails were a nickel'],
+  conga: ['This is like a parade', 'Are we there yet?', 'Who\'s leading this thing?', 'CONGA LINE!', 'Somebody\'s cart squeaks',
+    'I\'m just here for the hot dogs', 'Smells like birdseed back here', 'Is this the line for the rebate?', 'Ope, stepped on your heel',
+    'Follow the green vest, boys', 'I feel like a duckling', 'Can we stop at the hot dogs?'],
+  paid: ['Do you price match?', 'Can I get the 11% now?', 'Put it on my tab', 'I got a coupon somewhere...', 'That\'s highway robbery',
+    'Cash. Like a real man.', 'Exact change, baby', 'Will this fit in a Buick?'],
+  bump: ['Ope, sorry', 'Ope!', 'Pardon me', 'Ope, just gonna squeeze by', 'Whoa there, bud', 'Sorry, sorry!'],
+  slip: ['WHOA!', 'WHEEEE!', 'MY HIP!', 'Ope ope ope OPE', 'Who spilled the oil?!', 'I\'M SKATING!'],
+  hotdog: ['FREE HOT DOG?!', 'Outta my way!', 'I\'ll take six', 'Dibs on the ketchup', 'Hot dog hot dog hot dog'],
+  raccoon: ['RACCOON!', 'Get him, Dale!', 'He took my birdseed!', 'Trash panda!', 'Somebody call Gary!'],
   lost: ['Where\'s the {a} aisle?', 'Can\'t find the {i}...', 'Ope, wrong aisle', 'Who moved the {a}?'],
   found: ['Found it!', 'There she is!', 'Bingo!', 'That\'s the one'],
   join: ['Oh, alright!', 'Lead the way, bud', 'Ope, comin\'', 'Sure thing, boss', 'Where we goin\'?'],
@@ -309,10 +322,24 @@ const LINES = {
 };
 const COP_LINES = ['HEY! Don\'t let Buckos leave without paying for their Bucko Goods!', 'That\'s a fine, pal!',
   'One more and I\'m calling the feds.', 'You know how much paperwork this is?', 'Bucko Goods get PAID for!'];
+const CASHIER_LINES = ['Find everything okay?', 'Paper or plastic?', 'Want the 11% rebate form?', 'Have a Buckardy day!', 'Next!',
+  'Got a Bucko Rewards card?', 'Ope, that one didn\'t scan', 'Enjoy the birdseed!', 'Cash or card, hon?'];
+const SURNAMES = ['Johnson', 'Olson', 'Lindqvist', 'Schmidt', 'Kowalski', 'Peterson', 'Hanson', 'Gunderson', 'Swanson', 'Thorson',
+  'Bjornstad', 'Mueller', 'Larson', 'Anderson', 'Nygaard', 'Halvorsen', 'Jorgenson', 'Wojcik', 'Ruud', 'Sorensen'];
 function say(e, key, t = 2.6) {
   let s = pick(LINES[key]);
   if (e.item) s = s.replace('{i}', e.item).replace('{a}', e.area.toLowerCase());
   e.say = { text: s, t: 0, life: t };
+  babble(e, s);
+}
+function sayText(e, s, t = 2.6) { e.say = { text: s, t: 0, life: t }; babble(e, s); }
+/* everybody talks in a little burst of gibberish at their own pitch */
+let lastBabble = 0;
+function babble(e, s) {
+  if (!S.on || !S.ac || G.clock - lastBabble < 0.22 || dist(e, G.player) > 520) return;
+  lastBabble = G.clock;
+  const v = e.voice || 220, n = clamp(Math.round(s.length / 4), 2, 8);
+  for (let i = 0; i < n; i++) S.tone(v * (0.82 + Math.random() * 0.45), 0.055, 'square', 0.03, null, i * 0.075);
 }
 
 function makeLook(type) {
@@ -328,7 +355,7 @@ function makeLook(type) {
 const PLAYER_LOOK = { skin: '#f1c27d', pants: '#b39b6c', shirt: 'tee', shirtCol: '#f4f4f4', vest: '#0a8a3c', hat: 'visor', hatCol: '#0a7a36', belly: 1, tag: true, hair: '#3b2414' };
 const AGENT_LOOK = { skin: '#e0ac69', pants: '#15171c', shirt: 'tee', shirtCol: '#15171c', shades: true, belly: 1, hair: '#1a1a1a', tie: true };
 const COP_LOOK = { skin: '#e0ac69', pants: '#1c2e5a', shirt: 'tee', shirtCol: '#2a4380', belly: 1.12, stache: true, hair: '#3b2414', hat: 'police', hatCol: '#1c2e5a', badge: true, shades: true };
-const CASHIERS = LANES.map((cx, i) => ({ x: cx + LANE_W / 2 + 22, y: CTR_Y + 30, walk: 0, dir: -1, vx: 0, vy: 0, seed: i * 1.7, busy: 0, isCashier: true,
+const CASHIERS = LANES.map((cx, i) => ({ voice: 300 + i * 30, x: cx + LANE_W / 2 + 22, y: CTR_Y + 30, walk: 0, dir: -1, vx: 0, vy: 0, seed: i * 1.7, busy: 0, isCashier: true,
   name: ['Brenda', 'Tammy', 'Doug'][i], look: { skin: SKIN[i + 1], pants: '#333', shirt: 'tee', shirtCol: '#f4f4f4', vest: '#0a8a3c', hat: 'visor', hatCol: '#0a7a36', belly: 1.05, hair: HAIR[i + 2] } }));
 const AGENTS = [{ x: 330, y: 845, isAgent: true, walk: 0, vx: 0, vy: 0, seed: 2 }, { x: 1300, y: 845, isAgent: true, walk: 0, vx: 0, vy: 0, seed: 5 }];
 
@@ -338,7 +365,7 @@ function newBucko(type, x, y, entering) {
   const it = type === 'contractor' ? ['load of 2x4s', 0, 'LUMBER', 'plank'] : pick(ITEMS);
   const golden = type !== 'contractor' && Math.random() < 0.05, look = makeLook(type);
   if (golden) Object.assign(look, { shirt: 'flannel', shirtCol: '#c9970f', hat: 'blaze', hatCol: '#e8b923' });
-  return { golden, type, x, y, name: nameBag.pop(), item: it[0], price: it[1], area: it[2], kind: it[3], look,
+  return { golden, type, x, y, surname: pick(SURNAMES), voice: rnd(170, 330), name: nameBag.pop(), item: it[0], price: it[1], area: it[2], kind: it[3], look,
     state: entering ? 'entering' : 'shop', target: entering ? { x: 190, y: 640 } : null, pause: rnd(0, 1.5),
     stuck: 0, cool: 0, has: false, hunt: 0, need: rnd(1.6, 3.4), scanned: false, scanT: 0, walk: rnd(0, 6), out: 0,
     dir: 1, vx: 0, vy: 0, seed: rnd(0, 10), say: null, chat: rnd(4, 12), lure: 0, nag: 0, patience: 0, patMax: 1,
@@ -403,7 +430,8 @@ function newGame() {
 function startDay() {
   const c = dayCfg(G.day);
   if (decalCv) decalCv.getContext('2d').clearRect(0, 0, W, H);
-  Object.assign(G, { buckos: [], spawns: [], cops: [], pops: [], parts: [], decals: [], fires: [], booms: [], toast: null, as: null, pa: null, paT: rnd(14, 24),
+  Object.assign(G, { spill: null, hotdogT: 0, raccoon: null, congaT: 6, dashT: 0, dashCD: 0, events: [],
+    buckos: [], spawns: [], cops: [], pops: [], parts: [], decals: [], fires: [], booms: [], toast: null, as: null, pa: null, paT: rnd(14, 24),
     dayLen: c.time, timer: c.time, dayRemoved: 0, dayCash: 0, whistleCD: 0, slow: 0, snap: null, closed: -1, closeT: rnd(20, 35), trip: 0 });
   const p = G.player;
   Object.assign(p, { x: 800, y: 630, vx: 0, vy: 0, chain: [], rag: null }); p.trail = [{ x: p.x, y: p.y }];   // rag: null = back on his feet
@@ -420,6 +448,9 @@ function startDay() {
     } else G.spawns.push({ at: c.time * (0.95 - 0.6 * (i - now + 1) / (c.total - now + 1)), type: t });
   });
   if (!G.quest) newQuest();
+  { const kinds = ['spill', 'hotdog', 'bus', 'raccoon'].sort(() => Math.random() - 0.5);
+    const n = G.day === 1 ? 1 : G.day < 4 ? 2 : 3;
+    for (let i = 0; i < n; i++) G.events.push({ kind: G.day === 1 ? 'spill' : kinds[i], at: c.time * (0.75 - i * 0.22) - rnd(0, 8) }); }
   if (G.day >= 5) badge('day5');
   G.state = 'intro';
 }
@@ -456,8 +487,9 @@ const BADGES = [
   ['golden', 'Midas Bucko', 'Get a Golden Bucko out'], ['jackpot', 'Jackpot', 'Hit the $10,000 jackpot'],
   ['bombed', 'Bucko Bombed', 'Live through your first Bucko Bombers'], ['b52', 'Big Ugly Fat Fellow', 'Get a visit from the B-52'],
   ['nuke', 'Fallout', 'Get nuked'], ['rich', 'High Roller', 'Have $5,000 in your wallet'],
-  ['geared', 'Fully Equipped', 'Own the whistle, map app and scanner'], ['legend', 'Bucko Legend', 'Reach the top rank']];
-const CAREER = { xp: store.get('xp', 0), out: store.get('cOut', 0), caught: store.get('cCaught', 0), badges: store.get('badges', []) };
+  ['geared', 'Fully Equipped', 'Own the whistle, map app and scanner'], ['legend', 'Bucko Legend', 'Reach the top rank'],
+  ['dex', 'Gotta Ope \'Em All', 'Fill the whole Buckodex']];
+const CAREER = { dex: store.get('dex', []), xp: store.get('xp', 0), out: store.get('cOut', 0), caught: store.get('cCaught', 0), badges: store.get('badges', []) };
 const rankOf = xp => { let i = 0; while (i + 1 < RANKS.length && xp >= RANKS[i + 1][0]) i++; return i; };
 function addXP(n) {
   const before = rankOf(CAREER.xp); CAREER.xp += n; store.set('xp', CAREER.xp);
@@ -467,6 +499,14 @@ function addXP(n) {
     banner('PROMOTED!', `You're now ${RANKS[after][1]}  ·  +${money(bonus)} bonus`, '#7dff7d');
     if (after === RANKS.length - 1) badge('legend');
   }
+}
+function collect(b) {                      // a Bucko you got out correctly goes in the Buckodex
+  if (CAREER.dex.includes(b.name)) return;
+  CAREER.dex.push(b.name); store.set('dex', CAREER.dex);
+  const n = CAREER.dex.length, all = NAMES.length;
+  G.badgeToast = { name: `Buckodex: ${b.name} ${b.surname}`, desc: `${n}/${all} collected` + (n % 8 === 0 ? '  ·  +$500 collector bonus!' : `  ·  ${8 - n % 8} more for $500`), t: 0 };
+  if (n % 8 === 0) { earn(500); S.fanfare(); }
+  if (n >= all) badge('dex');
 }
 function career(k, n) {
   if (k === 'out') { CAREER.out += n; store.set('cOut', CAREER.out); badge('first'); if (CAREER.out >= 50) badge('out50'); if (CAREER.out >= 250) badge('out250'); }
@@ -503,14 +543,87 @@ function strike(why) {
 }
 function callCop() {
   S.copWhistle();
-  G.cops.push({ x: rnd(150, 230), y: 880, vx: 0, vy: 0, walk: 0, dir: 1, seed: rnd(0, 9), t: 0, phase: 'in', say: null });
+  G.cops.push({ voice: 130, x: rnd(150, 230), y: 880, vx: 0, vy: 0, walk: 0, dir: 1, seed: rnd(0, 9), t: 0, phase: 'in', say: null });
 }
 /* a runner gets an officer on his tail, coming in from the front doors */
 function sendGuard(b) {
   if (G.cops.some(c => c.chase === b)) return;
   S.copWhistle();
-  G.cops.push({ x: rnd(700, 900), y: 870, vx: 0, vy: 0, walk: 0, dir: 1, seed: rnd(0, 9), t: 0, phase: 'chase', chase: b,
+  G.cops.push({ voice: 140, x: rnd(700, 900), y: 870, vx: 0, vy: 0, walk: 0, dir: 1, seed: rnd(0, 9), t: 0, phase: 'chase', chase: b,
     say: { text: 'HEY! STOP RIGHT THERE!', t: 0, life: 2 } });
+}
+function startEvent(kind) {
+  if (kind === 'spill') {
+    const spots = [{ x: rnd(300, 1300), y: rnd(590, 670) }, { x: AREAS[pick(AISLES)].cx, y: rnd(260, 480) }];
+    G.spill = Object.assign(pick(spots), { r: 58, t: 40, seed: rnd(1, 9) });
+    banner('SPILL!', 'Somebody dropped the tractor oil. Watch your step.', '#9fd3ff'); paSay('Clean-up needed. Somebody spilled tractor oil. Again.');
+  } else if (kind === 'hotdog') {
+    G.hotdogT = 16; banner('FREE HOT DOG HOUR', 'Every Bucko in the store wants one. Every. Bucko.', '#ffb08a'); paSay('Attention shoppers: hot dogs are FREE for the next fifteen minutes.');
+    for (const b of G.buckos) if (b.state === 'shop' || b.state === 'wait') { b.target = null; b.pause = 0; if (Math.random() < 0.4) say(b, 'hotdog', 2); }
+  } else if (kind === 'bus') {
+    banner('BUS TOUR!', 'The Lutheran church group has arrived', '#ffe14d'); paSay('Welcome, First Lutheran of Fergus Falls! Please stay together.');
+    for (let i = 0; i < 5; i++) { const b = newBucko('regular', 150 + i * 18, 880 + i * 24, true); G.buckos.push(b); }
+  } else if (kind === 'raccoon') {
+    G.raccoon = { x: 1500, y: 620, vx: -170, vy: 0, t: 32, walk: 0, turn: 0.5 };
+    banner('RACCOON IN THE STORE!', 'Catch it - animal control pays a $250 bounty', '#c8c8c8'); paSay('Uh, there is a raccoon in the building. Please do not feed the raccoon.');
+  }
+}
+function updateEvents(dt) {
+  const p = G.player;
+  if (G.spill) {
+    G.spill.t -= dt; if (G.spill.t <= 0) G.spill = null;
+    else for (const b of G.buckos) if (b.state !== 'leaving' && dist(b, G.spill) < G.spill.r) {
+      b.wob = 1; b.x += b.vx * dt * 0.8; b.y += b.vy * dt * 0.8;               // sliding
+      if (!(b.bumpCD > 0)) { b.bumpCD = 5; say(b, 'slip', 1.6); }
+    }
+  }
+  if (G.hotdogT > 0) {
+    G.hotdogT -= dt;
+    for (const b of G.buckos) if ((b.state === 'shop' || b.state === 'wait') && !b.target) b.target = { x: rnd(110, 230), y: rnd(560, 680) };
+    if (G.hotdogT <= 0) for (const b of G.buckos) if (b.state === 'shop' || b.state === 'wait') b.target = null;
+  }
+  const r = G.raccoon;
+  if (r) {
+    r.t -= dt; r.turn -= dt; r.walk += dt * 16;
+    if (r.turn <= 0) { r.turn = rnd(0.3, 0.8); const a = Math.random() * Math.PI * 2, away = dist(r, p) < 200; const ax = away ? r.x - p.x : Math.cos(a), ay = away ? r.y - p.y : Math.sin(a), m = Math.hypot(ax, ay) || 1; r.vx = ax / m * 175; r.vy = ay / m * 175; }
+    r.x += r.vx * dt; r.y += r.vy * dt; const bx = r.x, by = r.y; pushOut(r, 12); if (Math.abs(r.x - bx) + Math.abs(r.y - by) > 1) r.turn = 0;
+    for (const b of G.buckos) if ((b.state === 'shop' || b.state === 'wait') && dist(b, r) < 170) { b.target = { x: r.x, y: r.y }; b.pause = 0; if (!(b.bumpCD > 0) && Math.random() < 0.01) { b.bumpCD = 6; say(b, 'raccoon', 1.6); } }
+    if (dist(r, p) < 36) {
+      earn(250); addXP(30); S.fanfare(); confetti(r.x, r.y, 50); spawnCoins(r.x, r.y, 10);
+      banner('RACCOON CAUGHT!', 'Animal control pays the $250 bounty', '#7dff7d'); G.raccoon = null;
+    } else if (r.t <= 0) { paSay('The raccoon has left the building. With a bag of birdseed.'); G.raccoon = null; }
+  }
+}
+function drawEvents() {
+  if (G.spill) {
+    const sp = G.spill, a = Math.min(1, sp.t / 3);
+    g.globalAlpha = a; let seed = sp.seed * 999; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    g.fillStyle = 'rgba(60,55,40,0.55)'; g.beginPath();
+    for (let k = 0; k < 14; k++) { const ang = k / 14 * Math.PI * 2, rad = sp.r * (0.75 + r() * 0.35); g.lineTo(sp.x + Math.cos(ang) * rad * 1.25, sp.y + Math.sin(ang) * rad * 0.8); }
+    g.closePath(); g.fill();
+    g.fillStyle = 'rgba(160,200,255,0.25)'; g.beginPath(); g.ellipse(sp.x - sp.r * 0.3, sp.y - sp.r * 0.2, sp.r * 0.5, sp.r * 0.18, -0.3, 0, 7); g.fill();
+    // the wet-floor sign
+    const sx = sp.x + sp.r * 1.1, sy = sp.y - sp.r * 0.4;
+    g.fillStyle = '#f2c500'; g.beginPath(); g.moveTo(sx, sy - 22); g.lineTo(sx + 12, sy + 10); g.lineTo(sx - 12, sy + 10); g.closePath(); g.fill();
+    g.strokeStyle = '#333'; g.lineWidth = 1.5; g.stroke(); text('!', sx, sy, 14, '#222');
+    g.globalAlpha = 1;
+  }
+  const rc = G.raccoon;
+  if (rc) {
+    const d = rc.vx >= 0 ? 1 : -1;
+    g.save(); g.translate(rc.x, rc.y);
+    g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(0, 9, 18, 6, 0, 0, 7); g.fill();
+    for (let k = 0; k < 5; k++) { g.fillStyle = k % 2 ? '#2b2b2b' : '#8a8a8a'; g.beginPath(); g.ellipse(-d * (16 + k * 6), -2 - k * 1.5, 5, 4.5, 0, 0, 7); g.fill(); }   // ringed tail
+    g.fillStyle = '#7d7d7d'; g.beginPath(); g.ellipse(0, 0, 15, 9, 0, 0, 7); g.fill();
+    g.fillStyle = '#3a3a3a'; for (const lx of [-8, 8]) { g.fillRect(lx - 2, 5 + Math.sin(rc.walk + lx) * 2, 4, 5); }
+    g.fillStyle = '#9a9a9a'; g.beginPath(); g.arc(d * 14, -3, 8, 0, 7); g.fill();
+    g.fillStyle = '#eee'; g.beginPath(); g.arc(d * 19, -2, 4, 0, 7); g.fill();
+    g.fillStyle = '#1a1a1a'; g.fillRect(d * 9 - 5, -7, 12, 4);            // the bandit mask
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(d * 12, -5, 1.4, 0, 7); g.arc(d * 16, -5, 1.4, 0, 7); g.fill();
+    g.fillStyle = '#7d7d7d'; g.beginPath(); g.moveTo(d * 9, -9); g.lineTo(d * 11, -15); g.lineTo(d * 14, -10); g.fill();
+    g.restore();
+    text('RACCOON', rc.x, rc.y - 26, 11, '#fff', 'center', '900', '#333');
+  }
 }
 function paSay(text) { G.pa = { text, t: 0 }; S.chime(); }
 
@@ -522,7 +635,7 @@ function hit(x, y, w, h, fn) {
   const m = g.getTransform(), a = m.transformPoint({ x, y }), b = m.transformPoint({ x: x + w, y: y + h });
   HITS.push({ x1: Math.min(a.x, b.x) / dpr, y1: Math.min(a.y, b.y) / dpr, x2: Math.max(a.x, b.x) / dpr, y2: Math.max(a.y, b.y) / dpr, fn });
 }
-function bigBtns() { const r = clamp(Math.min(cw, ch) * 0.11, 34, 58); return { r, go: { x: cw - r - 14, y: ch - r - 14 }, wh: { x: cw - r - 14, y: ch - r * 3.2 - 14 } }; }
+function bigBtns() { const r = clamp(Math.min(cw, ch) * 0.11, 34, 58); return { r, dash: { x: cw - r * 3.4 - 14, y: ch - r * 0.8 - 14 }, go: { x: cw - r - 14, y: ch - r - 14 }, wh: { x: cw - r - 14, y: ch - r * 3.2 - 14 } }; }
 
 addEventListener('keydown', e => {
   if (keys[e.code]) return; keys[e.code] = true;
@@ -531,6 +644,7 @@ addEventListener('keydown', e => {
   if (G.state === 'play') {
     if (e.code === 'Space' || e.code === 'KeyE') letGo();
     if (e.code === 'KeyQ') blowWhistle();
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') dash();
     if (e.code === 'Escape' || e.code === 'KeyP') pause();
   } else if (e.code === 'Space' || e.code === 'Enter') primary();
   else if (G.state === 'pause' && (e.code === 'Escape' || e.code === 'KeyP')) resume();
@@ -584,6 +698,7 @@ cv.addEventListener('pointerdown', e => {
     const B = bigBtns();
     if (Math.hypot(px - B.go.x, py - B.go.y) < B.r + 10) { letGo(); return; }
     if (G.perks.whistle && Math.hypot(px - B.wh.x, py - B.wh.y) < B.r * 0.8 + 10) { blowWhistle(); return; }
+    if (touchy() && Math.hypot(px - B.dash.x, py - B.dash.y) < B.r * 0.75 + 8) { dash(); return; }
     if (joy.id === null) { joy.id = e.pointerId; joy.ox = joy.x = px; joy.oy = joy.y = py; try { cv.setPointerCapture(e.pointerId); } catch (_) {} }
     return;
   }
@@ -612,6 +727,11 @@ function letGo() {
   b.state = b.has ? 'wait' : 'shop'; b.cool = 2.2; b.target = null; b.pause = 0.6; b.scanT = 0;
   if (b.has) b.patience = Math.max(b.patience, 12);
   say(b, 'drop', 1.8); S.tone(400, 0.1, 'triangle', 0.1, 300);
+}
+function dash() {
+  if (G.state !== 'play' || G.dashCD > 0) return;
+  G.dashT = 0.45; G.dashCD = 2.5; S.whoosh(0); buzz(15);
+  const p = G.player; for (let i = 0; i < 8; i++) G.parts.push({ x: p.x + rnd(-10, 10), y: p.y + 14, vx: rnd(-60, 60), vy: rnd(-30, 0), life: 0.5, t: 0, c: '#c9ccc2', s: 7, kind: 'smoke' });
 }
 function blowWhistle() {
   if (!G.perks.whistle || G.whistleCD > 0 || G.state !== 'play') return;
@@ -667,14 +787,20 @@ function update(dt) {
   if (G.banner) { G.banner.t += dt; if (G.banner.t > 2.6) G.banner = null; }
   if (G.toast) { G.toast.t += dt; if (G.toast.t > G.toast.life) G.toast = null; }
   if (G.pa) { G.pa.t += dt; if (G.pa.t > 5) G.pa = null; }
-  for (const e of [...G.buckos, ...G.cops]) if (e.say) { e.say.t += dt; if (e.say.t > e.say.life) e.say = null; }
+  for (const e of [...G.buckos, ...G.cops, ...CASHIERS]) if (e.say) { e.say.t += dt; if (e.say.t > e.say.life) e.say = null; }
   if (isAir()) { updateAirstrike(dt); return; }
   if (G.state !== 'play') return;
   if (G.as) { G.as.t += dt; if (G.as.t >= 0) { beginAirstrike(); return; } }
 
   const p = G.player, { mx, my } = moveInput();
-  const SP = 245 * (1 + 0.12 * G.perks.shoes);
-  p.vx = mx * SP; p.vy = my * SP;
+  G.dashT = Math.max(0, G.dashT - dt); G.dashCD = Math.max(0, G.dashCD - dt);
+  const SP = 245 * (1 + 0.12 * G.perks.shoes) * (G.dashT > 0 ? 1.9 : 1);
+  const slippy = G.spill && dist(p, G.spill) < G.spill.r;
+  if (slippy) {                                   // on the oil: you keep sliding the way you were going
+    p.vx += (mx * SP - p.vx) * Math.min(1, dt * 1.1); p.vy += (my * SP - p.vy) * Math.min(1, dt * 1.1);
+    p.wob = 1; if (G.clock - (G.wheeT || 0) > 2.5 && Math.hypot(p.vx, p.vy) > 120) { G.wheeT = G.clock; pop(p.x, p.y - 70, pick(['WHEEEE!', 'WHOA!', 'OPE OPE OPE']), '#9fd3ff', 22); }
+  } else { p.vx = mx * SP; p.vy = my * SP; }
+  if (p.wob > 0) p.wob = Math.max(0, p.wob - dt * 1.5);
   p.x += p.vx * dt; p.y += p.vy * dt; pushOut(p, 19);
   if (mx || my) {
     p.walk += dt * 10; if (Math.abs(mx) > 0.1) p.dir = mx > 0 ? 1 : -1;
@@ -697,9 +823,13 @@ function update(dt) {
   if (before > 15 && G.timer <= 15) { paSay('Attention shoppers: Buckards closes in fifteen minutes. Get the Buckos OUT.'); banner('LAST CALL', '15 minutes to closing - get them out', '#ffb08a'); }
   if (G.quest && G.quest.kind === 'timed') { G.quest.time -= dt; if (G.quest.time <= 0) { pop(p.x, p.y - 70, 'QUEST FAILED', '#ff8080', 22); S.nope(); newQuest(); } }
 
+  for (const ev of G.events) if (!ev.done && G.timer <= ev.at) { ev.done = true; startEvent(ev.kind); }
+  updateEvents(dt);
   for (const s of G.spawns) if (!s.done && G.timer <= s.at) { s.done = true; G.buckos.push(newBucko(s.type, rnd(150, 230), 880, true)); }
 
-  // the line
+  // the line (and its chatter)
+  G.congaT -= dt;
+  if (G.congaT <= 0) { G.congaT = rnd(6, 11); if (p.chain.length >= 2) say(pick(p.chain), 'conga', 2.4); }
   p.chain.forEach((b, i) => {
     const t = TYPES[b.type], target = trailPoint((i + 1) * SPACING);
     stepToward(b, target, t.lineSpeed, dt); b.walk += Math.hypot(b.vx, b.vy) * dt * 0.06;
@@ -719,7 +849,7 @@ function update(dt) {
     if (b.state === 'entering') { if (stepToward(b, b.target, 90, dt) < 6) { b.state = 'shop'; b.target = null; } b.walk += dt * 7; continue; }
     // waiting customers run out of patience, and then they run
     if (b.state === 'wait' && b.type !== 'contractor' && !b.scanned) {
-      b.patience -= dt;
+      if (!(G.hotdogT > 0)) b.patience -= dt;
       if (b.patience < 12 && b.chat > 3) { b.chat = rnd(1.5, 3); say(b, 'impatient', 1.8); }
       if (b.patience <= 0) { b.state = 'runner'; b.target = null; say(b, 'run', 2.2); S.tone(500, 0.25, 'sawtooth', 0.06, 300); pop(b.x, b.y - 52, 'RUNNER!', '#ff5050', 20); sendGuard(b); }
     }
@@ -782,10 +912,14 @@ function update(dt) {
   const live = G.buckos.filter(b => b.state !== 'leaving');
   for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
     const a = live[i], b = live[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), m = R * 1.9;
-    if (d < m && d > 0.01) { const k = (m - d) / 2 / d; a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k; }
+    if (d < m && d > 0.01) {
+      const k = (m - d) / 2 / d; a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k;
+      if (d < m * 0.7 && a.state !== 'chain' && !(a.bumpCD > 0) && Math.random() < 0.15) { a.wob = 1; a.bumpCD = 6; say(a, 'bump', 1.5); }
+    }
   }
+  for (const b of G.buckos) { if (b.wob > 0) b.wob = Math.max(0, b.wob - dt * 1.6); if (b.bumpCD > 0) b.bumpCD -= dt; }
   for (const b of live) {
-    if (b.state !== 'chain') { const dx = b.x - p.x, dy = b.y - p.y, d = Math.hypot(dx, dy); if (d < 34 && d > 0.01) { b.x = p.x + dx / d * 34; b.y = p.y + dy / d * 34; } }
+    if (b.state !== 'chain') { const dx = b.x - p.x, dy = b.y - p.y, d = Math.hypot(dx, dy); if (d < 34 && d > 0.01) { b.x = p.x + dx / d * 34; b.y = p.y + dy / d * 34; if (!(b.bumpCD > 0) && Math.hypot(p.vx, p.vy) > 300) { b.wob = 1; b.bumpCD = 4; say(b, 'bump', 1.4); } } }
     if (b.state !== 'runner' || b.y < 860) pushOut(b, R);
   }
 
@@ -828,6 +962,9 @@ function update(dt) {
 
 function scanned(b) {
   b.scanned = true; S.scan();
+  if (Math.random() < 0.6) say(b, 'paid', 2);
+  const cashier = CASHIERS.reduce((a, c) => Math.abs(c.x - b.x) < Math.abs(a.x - b.x) ? c : a);
+  if (Math.random() < 0.7) sayText(cashier, pick(CASHIER_LINES), 2);
   if (b.type === 'coupon') b.price *= 0.89;
   pop(b.x, b.y - 52, (b.type === 'coupon' ? 'COUPONS! ' : '') + money2(b.price), '#7dff7d', 20);
 }
@@ -857,8 +994,10 @@ function leave(b, door) {
   if (G.trip > 1) v += 15 * (G.trip - 1);
   if (b.golden) { v = v * 5 + 100; banner('GOLDEN BUCKO!', `${b.name} tipped like royalty  ·  x5`, '#ffe14d'); S.jackpot(); confetti(b.x, b.y - 30, 60); badge('golden'); }
   addXP(b.golden ? 60 : 10 + Math.min(G.streak, 10));
-  career('out', 1); if (G.streak >= 10) badge('streak10');
-  earn(v); S.out(); S.coin(); say(b, 'thanks', 1.2); spawnCoins(b.x, b.y, Math.min(9, 3 + G.streak));
+  career('out', 1); if (G.streak >= 10) badge('streak10'); if (!G.badgeToast) collect(b); else setTimeout(() => collect(b), 3500);
+  earn(v); S.out(); S.coin(); say(b, 'thanks', 1.2); b.happy = true;
+  const SHOUT = { 3: 'NICE!', 5: 'OPE-TASTIC!', 8: 'BUCKTACULAR!', 12: 'UNBUCKLIEVABLE!', 16: 'FLANNEL FURY!', 20: 'LEGENDARY BUCKO HANDLER!', 30: 'ARE YOU EVEN HUMAN?!' };
+  if (SHOUT[G.streak]) { pop(G.player.x, G.player.y - 100, SHOUT[G.streak], '#ffe14d', 34); S.fanfare(); } spawnCoins(b.x, b.y, Math.min(9, 3 + G.streak));
   pop(b.x, b.y - 52, '+' + money(v) + (mult > 1 ? `  x${mult.toFixed(2).replace(/\.?0+$/, '')}` : '') + (G.trip > 1 ? `  TRIP x${G.trip}` : ''), '#ffe14d', 22);
   for (let i = 0; i < 10; i++) G.parts.push({ x: b.x, y: b.y - 20, vx: rnd(-120, 120), vy: rnd(-220, -60), life: 0.7, t: 0, c: pick(['#ffe14d', '#7dff7d', '#fff']), s: 4, kind: 'spark' });
   // the lucky ones: a big spender now and then, and once in a blue moon a jackpot
@@ -876,6 +1015,22 @@ function leave(b, door) {
   if (b.type === 'coupon') questTick('coupon', 1);
   if (b.type === 'contractor') questTick('contractor', 1);
 }
+function rollTicket() {
+  const r = Math.random();
+  if (r < 0.02) return { label: '$2,500!!', cash: 2500, big: true };
+  if (r < 0.07) return { label: 'STRIKE PARDON', pardon: true, big: true };
+  if (r < 0.15) return { label: '$750', cash: 750, big: true };
+  if (r < 0.30) return { label: '$300', cash: 300 };
+  if (r < 0.55) return { label: '$150', cash: 150 };
+  return { label: '$50', cash: 50 };
+}
+function scratch() {
+  const sm = G.summary; if (!sm || sm.scratched) return;
+  sm.scratched = true; const tk = sm.ticket;
+  if (tk.cash) earn(tk.cash);
+  if (tk.pardon) { G.strikes = Math.max(0, G.strikes - 1); G.tickets = 0; }
+  if (tk.big) { S.jackpot(); buzz([40, 30, 80]); } else S.coin();
+}
 function endDay(closing) {
   const left = G.buckos.filter(b => b.state !== 'leaving');
   S.buzzer();
@@ -886,7 +1041,7 @@ function endDay(closing) {
   }
   const bonus = closing ? 0 : Math.round(G.timer) * 5;
   if (bonus) earn(bonus);
-  G.summary = { left: closing ? left.length : 0, bonus };
+  G.summary = { left: closing ? left.length : 0, bonus, ticket: rollTicket(), scratched: false, scratchT: 0 };
   G.state = 'summary';
 }
 
@@ -915,7 +1070,17 @@ function objective() {
 /* ------------------------------------------------------------ airstrikes */
 const PATH0 = { x: -500, y: 830 }, PATH1 = { x: 2100, y: 60 };
 const PDIR = (() => { const dx = PATH1.x - PATH0.x, dy = PATH1.y - PATH0.y, d = Math.hypot(dx, dy); return { x: dx / d, y: dy / d, len: d }; })();
-const RUN_START = 0.9;
+const RUN_START = 2.6;             // the wind-up: siren, warning, radio chatter
+const RADIO = [
+  ['BUCKO-1: Tally one Buckards. Lotta flannel down there.', 'CONTROL: Copy. Cleared hot. Mind the birdseed.'],
+  ['BUCKO-1: Guy in a blaze orange hat is waving at me.', 'CONTROL: That is not a friendly. Cleared hot.'],
+  ['BUCKO-1: Target has a hot dog stand. Request a hot dog after.', 'CONTROL: Request denied. Cleared hot.'],
+  ['BUCKO-1: Confirm target is the green one with the 11% rebate?', 'CONTROL: Affirmative. Rebate still pending. Weapons free.'],
+  ['BUCKO-1: Somebody down there just said "ope".', 'CONTROL: That\'s our signal. Cleared hot.'],
+  ['BUCKO-1: Do they price match munitions?', 'CONTROL: Negative. Cleared hot.']];
+const QUIPS = [['Witnesses say the Buckos', '"mostly just said ope."'], ['Rebate forms were', 'reportedly unharmed.'],
+  ['Local man Dale says he', '"still wants his 11% back."'], ['Birdseed prices have', 'skyrocketed overnight.'],
+  ['Hot dogs remain', 'one dollar.'], ['The raccoon is', 'believed to be fine.'], ['"Honestly it was', 'still a better Tuesday."']];
 const PLANE_SCALE = { 'A-10': 1.05, 'F-15': 1.0, 'F-16': 1.15, 'F/A-18': 1.0, 'B-1': 0.75, 'B-21': 0.8, 'B-52': 0.7 };
 function planeAt(t) { const k = (t - RUN_START) / G.as.run; return { x: PATH0.x + (PATH1.x - PATH0.x) * k, y: PATH0.y + (PATH1.y - PATH0.y) * k }; }
 const timeOver = p => RUN_START + ((p.x - PATH0.x) * PDIR.x + (p.y - PATH0.y) * PDIR.y) / PDIR.len * G.as.run;   // when the plane passes a point
@@ -923,7 +1088,8 @@ const timeOver = p => RUN_START + ((p.x - PATH0.x) * PDIR.x + (p.y - PATH0.y) * 
 function beginAirstrike() {
   const L = threat(), heavy = L.ac.startsWith('B');
   const as = G.as = { t: 0, L, run: heavy ? 3.4 : 2.3, ev: [], proj: [], end: 6, nuke: null };
-  G.state = 'airstrike'; M.stop(); S.siren(); S.jet(0.6, heavy); buzz([200, 100, 200]);
+  as.radio = pick(RADIO); as.quip = pick(QUIPS);
+  G.state = 'airstrike'; M.stop(); S.siren(); S.jet(RUN_START - 0.3, heavy); buzz([200, 100, 200]);
   for (const b of G.buckos) if (Math.random() < 0.5) say(b, 'ope', 2.5);
   const p = G.player, spots = n => { const a = [{ x: p.x, y: p.y }]; while (a.length < n) a.push({ x: rnd(120, 1480), y: rnd(130, 840) }); return a; };
   if (L.fx === 'gun') { S.brrt(1.9, RUN_START + 0.55); as.end = 5.6; }
@@ -946,6 +1112,7 @@ function beginAirstrike() {
   } else if (L.fx === 'nuke') {
     as.ev.push({ at: timeOver({ x: 800, y: 470 }) - 0.2, kind: 'nukebomb', x: 800, y: 470, fall: 2.4 }); as.end = 11;
   }
+  if (L.fx !== 'missile') as.end += RUN_START - 0.9;    // the fixed timings above were written for a 0.9 s wind-up
 }
 function explode(x, y, r, quiet) {
   burst(x, y, clamp(r / 70, 0.6, 5));
@@ -1242,7 +1409,8 @@ function drawPerson(e, L, o = {}) {
   const moving = Math.hypot(e.vx || 0, e.vy || 0) > 5 || o.forceWalk, sw = moving ? Math.sin(e.walk || 0) : 0;
   g.save(); g.translate(e.x, e.y);
   g.fillStyle = 'rgba(0,0,0,0.24)'; g.beginPath(); g.ellipse(0, R0 * 0.95, R0 * 1.12 * belly, R0 * 0.42, 0, 0, 7); g.fill();
-  g.translate(0, -z - (rag ? 0 : Math.abs(sw) * 2.2)); if (rag) g.rotate(rag.ang);
+  g.translate(0, -z - (rag ? 0 : Math.abs(sw) * 2.2) - (o.hop || 0)); if (rag) g.rotate(rag.ang);
+  if (e.wob > 0 && !rag) g.rotate(Math.sin(G.clock * 22) * 0.38 * e.wob);
   if (o.alpha != null) g.globalAlpha = o.alpha;
   if (o.jitter) g.translate(rnd(-1.2, 1.2), 0);
   const OL = 'rgba(25,18,12,0.75)'; g.lineWidth = 1.5; g.strokeStyle = OL; g.lineJoin = 'round';
@@ -1342,11 +1510,11 @@ function drawBucko(b) {
   if ((b.state === 'shop' || b.state === 'wait') && !b.rag && b.type !== 'contractor') drawCart(b);
   const t = b.type, alpha = b.state === 'leaving' ? clamp(1 - b.out / 1.1, 0, 1) : null, runner = b.state === 'runner';
   drawPerson(b, b.look, { carry: b.has && !((b.state === 'shop' || b.state === 'wait') && t !== 'contractor') ? b.kind : t === 'coupon' ? 'coupons' : null, wide: t === 'squirrely' || runner,
-    jitter: t === 'squirrely' && b.state !== 'chain' && !b.rag, alpha, forceWalk: b.state === 'leaving', angry: runner || (b.state === 'wait' && b.patience < 12 && !b.scanned) });
+    jitter: t === 'squirrely' && b.state !== 'chain' && !b.rag, alpha, hop: b.happy && b.state === 'leaving' ? Math.abs(Math.sin(b.out * 13)) * 12 : 0, forceWalk: b.state === 'leaving', angry: runner || (b.state === 'wait' && b.patience < 12 && !b.scanned) });
   if (b.rag || b.state === 'leaving') return;
   const inLine = b.state === 'chain', near = dist(b, G.player) < 150, named = inLine || near || runner;
   {
-    const label = named ? b.name : 'Bucko', fs2 = named ? 13 : 11;
+    const label = named ? b.name + ' ' + b.surname : 'Bucko', fs2 = named ? 13 : 11;
     g.font = `700 ${fs2}px ${FB}`; const w = g.measureText(label).width + 12, ty = b.y - R * 2.75;
     g.globalAlpha = named ? 1 : 0.7;
     g.fillStyle = b.golden ? 'rgba(150,110,0,0.95)' : runner ? 'rgba(190,20,20,0.92)' : inLine ? 'rgba(10,90,42,0.92)' : 'rgba(0,0,0,0.55)';
@@ -1757,6 +1925,12 @@ function drawControls() {
     g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${Math.round(B.r * 0.3)}px ${FD}`;
     g.fillText('LET GO', B.go.x, B.go.y - B.r * 0.1); g.font = `700 ${Math.round(B.r * 0.2)}px ${FB}`; g.fillText(touchy() ? 'last Bucko' : '(SPACE)', B.go.x, B.go.y + B.r * 0.25);
   }
+  if (touchy()) {
+    const r = B.r * 0.75, ready = G.dashCD <= 0;
+    g.fillStyle = ready ? 'rgba(40,90,160,0.88)' : 'rgba(80,80,80,0.55)'; g.beginPath(); g.arc(B.dash.x, B.dash.y, r, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 3; g.stroke();
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${Math.round(r * 0.36)}px ${FD}`; g.fillText('DASH', B.dash.x, B.dash.y);
+  }
   if (G.perks.whistle) {
     const r = B.r * 0.8, ready = G.whistleCD <= 0;
     g.fillStyle = ready ? 'rgba(10,122,54,0.9)' : 'rgba(80,80,80,0.6)'; g.beginPath(); g.arc(B.wh.x, B.wh.y, r, 0, 7); g.fill();
@@ -1880,7 +2054,7 @@ function drawTitle(t) {
   text('Let them shop · ring them up · right door · catch the sneaky ones.', 800, 604, 17, '#fff', 'center', '700', null, FB);
   text('Mess up enough and the Bucko Bombers show up - all the way to the B-52.', 800, 634, 16, '#ffb0a0', 'center', '700', null, FB);
   button(620, 690, 360, 80, 'CLOCK IN', newGame, { size: 36 });
-  button(1000, 702, 200, 56, `BADGES ${CAREER.badges.length}/${BADGES.length}`, () => { G.showBadges = true; }, { size: 18, bg: '#5a4500', bg2: '#8a6d10' });
+  button(1000, 702, 200, 56, `BADGES + DEX`, () => { G.showBadges = true; }, { size: 18, bg: '#5a4500', bg2: '#8a6d10' });
   { const r = rankOf(CAREER.xp); g.fillStyle = 'rgba(8,22,14,0.85)'; rr(400, 702, 200, 56, 12); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 2; g.stroke();
     text('RANK', 500, 716, 10, '#cfe8d6', 'center', '800', null, FB); fitText(RANKS[r][1], 500, 734, 184, 16, '#ffe14d', 'center', '900');
     const lo = RANKS[r][0], hi = RANKS[r + 1] ? RANKS[r + 1][0] : lo + 1, k = RANKS[r + 1] ? clamp((CAREER.xp - lo) / (hi - lo), 0, 1) : 1;
@@ -1889,7 +2063,7 @@ function drawTitle(t) {
   text(`Total score  ${money(G.total)}     ·     Best  ${money(G.best)}`, 800, 811, 18, '#fff', 'center', '800', null, FB);
   if (!touchy()) {
     g.fillStyle = 'rgba(8,22,14,0.75)'; rr(470, 842, 660, 32, 16); g.fill();
-    text('Move WASD / arrows  ·  Let go SPACE  ·  Whistle Q  ·  Pause P  ·  Sound M', 800, 859, 14, '#d8e0da', 'center', '700', null, FB);
+    text('Move WASD  ·  Dash SHIFT  ·  Let go SPACE  ·  Whistle Q  ·  Pause P  ·  Sound M', 800, 859, 14, '#d8e0da', 'center', '700', null, FB);
   }
   const right = Math.min(xr, 1600);
   text('v' + (APP && APP.version ? APP.version() : GR_VERSION), right - 16, 885, 13, 'rgba(255,255,255,0.7)', 'right', '700', null, FB);
@@ -1901,18 +2075,25 @@ function drawTitle(t) {
 }
 function drawBadges() {
   g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(-2000, -2000, 6000, 6000);
-  paper(300, 120, 1000, 680);
+  paper(300, 110, 1000, 760);
   text('BADGES', 800, 168, 34, '#0a7a36');
-  text(`${CAREER.badges.length} of ${BADGES.length} unlocked  ·  ${CAREER.out} Buckos out all time  ·  ${CAREER.xp} XP`, 800, 204, 16, '#555', 'center', '700', null, FB);
+  text(`${CAREER.badges.length}/${BADGES.length} badges  ·  Buckodex ${CAREER.dex.length}/${NAMES.length}  ·  ${CAREER.out} Buckos out all time  ·  ${CAREER.xp} XP`, 800, 204, 16, '#555', 'center', '700', null, FB);
   BADGES.forEach(([id, name, desc], i) => {
-    const got = CAREER.badges.includes(id), cx = 330 + (i % 2) * 475, cy = 226 + Math.floor(i / 2) * 64;
-    g.fillStyle = got ? '#fff8dc' : '#ecebe4'; rr(cx, cy, 460, 56, 10); g.fill(); g.strokeStyle = got ? '#d4af37' : '#cfcfc6'; g.lineWidth = 2; g.stroke();
+    const got = CAREER.badges.includes(id), cx = 330 + (i % 3) * 315, cy = 226 + Math.floor(i / 3) * 64;
+    g.fillStyle = got ? '#fff8dc' : '#ecebe4'; rr(cx, cy, 300, 56, 10); g.fill(); g.strokeStyle = got ? '#d4af37' : '#cfcfc6'; g.lineWidth = 2; g.stroke();
     g.fillStyle = got ? '#d4af37' : '#b8b8b0'; g.beginPath(); g.arc(cx + 30, cy + 28, 18, 0, 7); g.fill();
     text(got ? '★' : '?', cx + 30, cy + 29, 18, got ? '#14306b' : '#fff', 'center', '900', null, FB);
-    text(name, cx + 58, cy + 20, 16, got ? '#0a5a2a' : '#888', 'left', '900');
-    fitText(desc, cx + 58, cy + 40, 390, 13, got ? '#444' : '#999', 'left', '700', FB);
+    fitText(name, cx + 58, cy + 20, 236, 15, got ? '#0a5a2a' : '#888', 'left', '900');
+    fitText(desc, cx + 58, cy + 40, 230, 13, got ? '#444' : '#999', 'left', '700', FB);
   });
-  button(650, 690, 300, 56, 'CLOSE', () => { G.showBadges = false; }, { size: 20 });
+  // the Buckodex: every first name, greyed until you've got that Bucko out
+  text('BUCKODEX', 800, 568, 18, '#0a7a36');
+  NAMES.forEach((nm, i) => {
+    const got = CAREER.dex.includes(nm), cx = 330 + (i % 8) * 118, cy = 584 + Math.floor(i / 8) * 26;
+    g.fillStyle = got ? '#d9f2df' : '#ecebe4'; rr(cx, cy, 112, 22, 6); g.fill();
+    fitText(got ? nm : '???', cx + 56, cy + 12, 104, 12, got ? '#0a5a2a' : '#aaa', 'center', '800', FB);
+  });
+  button(650, 696 + 0, 300, 50, 'CLOSE', () => { G.showBadges = false; }, { size: 20 });
 }
 function drawUpdateBanner(x, y) {
   const u = G.update; if (!u) return;
@@ -1975,7 +2156,33 @@ function drawSummary() {
   text('THANK YOU FOR SHOPPING BUCKARDS', x + w / 2, y + 510, 13, '#444', 'center', '700', null, FM);
   g.globalAlpha = 1;
   button(x + 40, y + h - 90, w - 80, 60, 'PERKS CATALOG →', () => { G.state = 'shop'; }, { size: 24 });
+  drawTicket(1080, 300);
   drawUpdateBanner(800, 125);
+}
+function drawTicket(x, y) {
+  const sm = G.summary, tk = sm.ticket, w = 240, h = 300;
+  if (sm.scratched) sm.scratchT = Math.min(1, sm.scratchT + 0.04);
+  g.save(); g.translate(x + w / 2, y + h / 2); g.rotate(0.04); g.translate(-(x + w / 2), -(y + h / 2));
+  g.fillStyle = 'rgba(0,0,0,0.35)'; rr(x + 8, y + 10, w, h, 14); g.fill();
+  const gg = g.createLinearGradient(x, y, x + w, y + h); gg.addColorStop(0, '#ffe36e'); gg.addColorStop(1, '#e0a91a');
+  g.fillStyle = gg; rr(x, y, w, h, 14); g.fill(); g.strokeStyle = '#8a5a00'; g.lineWidth = 4; g.stroke();
+  text('LUCKY', x + w / 2, y + 36, 30, '#0a5a2a', 'center', '900');
+  text('BUCKO', x + w / 2, y + 70, 30, '#0a5a2a', 'center', '900');
+  text('FREE SCRATCH TICKET', x + w / 2, y + 98, 12, '#5a3a00', 'center', '800', null, FB);
+  const bx = x + 20, by = y + 116, bw = w - 40, bh = 110;
+  g.fillStyle = '#fffbe8'; rr(bx, by, bw, bh, 10); g.fill();
+  fitText(tk.label, x + w / 2, by + bh / 2 + 2, bw - 16, tk.big ? 34 : 40, tk.big ? '#c0392b' : '#0a5a2a', 'center', '900');
+  if (sm.scratchT < 1) {                         // the silver layer, wiping away left to right
+    g.save(); g.beginPath(); g.rect(bx + bw * sm.scratchT, by, bw * (1 - sm.scratchT), bh); g.clip();
+    const sv = g.createLinearGradient(bx, by, bx + bw, by + bh); sv.addColorStop(0, '#c9ced2'); sv.addColorStop(0.5, '#eef1f3'); sv.addColorStop(1, '#a9b0b5');
+    g.fillStyle = sv; rr(bx, by, bw, bh, 10); g.fill();
+    text('SCRATCH ME', x + w / 2, by + bh / 2 + 2, 22, '#6a7075', 'center', '900');
+    g.restore();
+  }
+  text(sm.scratched ? (tk.pardon ? 'One strike forgiven!' : 'Added to your wallet!') : 'Tap to scratch', x + w / 2, y + 250, 15, '#5a3a00', 'center', '800', null, FB);
+  text('Odds: about 1 in 50 for $2,500', x + w / 2, y + 276, 11, '#7a5a10', 'center', '700', null, FB);
+  g.restore();
+  if (!sm.scratched) hit(x, y, w, h, scratch);
 }
 function drawShop() {
   paper(250, 150, 1100, 640);
@@ -2023,6 +2230,9 @@ function drawAirstrikeText() {
     text('⚠  BUCKO BOMBERS INBOUND  ⚠', 800, 400, 58, '#fff', 'center', '900', '#600');
     text(`${L.ac}  ·  ${L.w.toUpperCase()}`, 800, 466, 30, '#ffe14d', 'center', '900', '#600');
     text('The Federal Bureau of Bucko Affairs has authorized a correction.', 800, 512, 22, '#fff', 'center', '800', '#600', FB);
+    g.globalAlpha = clamp((t - 0.5) * 3, 0, 1); text(as.radio[0], 800, 572, 20, '#bfe8ff', 'center', '800', '#012', FM);
+    g.globalAlpha = clamp((t - 1.5) * 3, 0, 1); text(as.radio[1], 800, 606, 20, '#ffd6a0', 'center', '800', '#210', FM);
+    g.globalAlpha = 1;
   }
   if (L.fx === 'gun' && t > RUN_START + 0.6 && t < RUN_START + 2.8) {
     const k = clamp((t - RUN_START - 0.6) * 3, 0, 1);
@@ -2110,7 +2320,7 @@ function drawNewspaper(kind) {
     'Federal officials say this was', '"the last resort." Again.', '',
     `Days survived: ${G.day}`, `Buckos removed: ${G.removed}`, `Total score lost: ${money(as.lost || 0)}`, `Total score now: $0`, '',
     `Best ever (kept): ${money(G.best)}`]
-    : ['Officials confirmed the strike', `after repeated Bucko violations.`, '',
+    : [as.quip[0], as.quip[1], '',
     `Fine: -${money(as.fine || L.fine)}`, `Wallet now: ${money(G.cash)}`, `Total score: ${money(G.total)}`, `Best: ${money(G.best)}`, '',
     `NEXT TIME: ${next.ac}`, next.w];
   lines.forEach((l, i) => text(l, tx, py + 14 + i * 26, i >= 3 && i <= 6 ? 19 : 17, (!nuke && i >= 8) || (nuke && i === 5) ? '#8a1a1a' : '#222', 'left', i >= 3 ? '900' : '700', null, FN));
@@ -2191,6 +2401,7 @@ function frame(now) {
     g.setTransform(dpr * cam.s, 0, 0, dpr * cam.s, dpr * (cam.tx + sh.x), dpr * (cam.ty + sh.y));
     g.drawImage(staticLayer, 0, 0, W, H);
     if (G.decals.length && decalCv) g.drawImage(decalCv, 0, 0, W, H);
+    drawEvents();
     drawArrow();
     const people = [...G.buckos, G.player, ...CASHIERS, ...G.cops];
     if (G.strikes >= MAX_STRIKES - 2 && !isAir()) people.push(...AGENTS);
@@ -2213,6 +2424,7 @@ function frame(now) {
     for (const b of G.buckos) drawWant(b);
     for (const b of G.buckos) drawBubble(b);
     for (const c of G.cops) drawBubble(c, true);
+    for (const c of CASHIERS) drawBubble(c);
     for (const p of G.pops) { const k = p.t / 1.4; g.globalAlpha = 1 - k * k; text(p.text, p.x, p.y - k * 40, p.size, p.color, 'center', '900', 'rgba(0,0,0,0.75)'); }
     g.globalAlpha = 1;
     const air = isAir();
