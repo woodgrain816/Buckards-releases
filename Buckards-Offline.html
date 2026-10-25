@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.8.1";
+const GR_VERSION = "2.8.2";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Your run now saves at the start of every day - updates and closing the game never lose it (CONTINUE on the title screen). New save codes in Settings move all your progress to another website or device.";
+const GR_NOTES = "Buckards now also lives at buckards.vercel.app, installable and playable offline there too. Your run saves every day and save codes move progress between sites.";
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
 const W = 1600, H = 900;
@@ -3308,7 +3308,7 @@ requestAnimationFrame(frame);
    launcher does the updating and the page only says that a new version is out */
 window.grUpdate = (state, version, notes) => { G.update = { state, version, notes }; };
 const OFFLINE_FILE = /Buckards-Offline/i.test(decodeURIComponent(location.pathname));   // the copy-anywhere offline file
-const ON_WEB = /github\.io$|netlify\.app$/.test(location.host);        // the copy GitHub Pages serves (what the exe opens)
+const ON_WEB = /github\.io$|netlify\.app$|vercel\.app$/.test(location.host);        // the copy GitHub Pages serves (what the exe opens)
 function freshLoad(v) { location.replace(location.pathname + '?v=' + encodeURIComponent(v) + location.hash); }
 function checkUpdate() {
   if (APP) { try { APP.check(); } catch (e) {} return; }     // the Android wrapper downloads it and calls grUpdate
