@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "3.1.0";
+const GR_VERSION = "3.1.1";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "There are now secrets hidden in Buckards. Six of them. Good luck.";
+const GR_NOTES = "Behind-the-scenes fix so the backup websites never get stuck reloading. There are still six secrets hidden in Buckards.";
 const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
@@ -3575,7 +3575,14 @@ function checkUpdate() {
   if (!/^(file|https?):$/.test(location.protocol) || /localhost|127\.0\.0\.1/.test(location.host)) return;
   fetch(UPDATE_URL + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(m => {
     if (!m || !newer(m.version, GR_VERSION)) return;
-    if (ON_WEB && G.state === 'title') { freshLoad(m.version); return; }        // nothing to lose on the title screen: just update
+    if (ON_WEB) {                     // only reload if THIS site already has it (mirrors like Netlify update less often)
+      fetch(location.pathname + '?check=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => {
+        const v = (t.match(/GR_VERSION = "([^"]+)"/) || [])[1];
+        if (!v || !newer(v, GR_VERSION)) return;
+        if (G.state === 'title') freshLoad(v); else G.update = { state: 'web', version: v, notes: m.notes };   // nothing to lose on the title screen: just update
+      }).catch(() => {});
+      return;
+    }
     G.update = { state: ON_WEB ? 'web' : OFFLINE_FILE ? 'file' : 'pc', version: m.version, notes: m.notes };
   }).catch(() => {});
 }

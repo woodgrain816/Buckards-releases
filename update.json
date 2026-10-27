@@ -1,10 +1,10 @@
 {
-  "version": "3.1.0",
+  "version": "3.1.1",
   "minNative": 1,
-  "notes": "There are now secrets hidden in Buckards. Six of them. Good luck.",
-  "page": "buckards-3.1.0.html",
+  "notes": "Behind-the-scenes fix so the backup websites never get stuck reloading. There are still six secrets hidden in Buckards.",
+  "page": "buckards-3.1.1.html",
   "apk": "Buckards.apk",
-  "sha256": "621737a9fcb5512b6094477be7361234b54b15d6529868b676988003943b89a5",
-  "size": 286212,
-  "date": "2026-10-27T05:47:33.181Z"
+  "sha256": "e24e9b25448b2fe34f4232aa4503a55769a723266f46307749f8cd8fdf3030aa",
+  "size": 286689,
+  "date": "2026-10-27T06:19:37.311Z"
 }
