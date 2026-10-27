@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "2.9.3";
+const GR_VERSION = "3.0.0";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "New Stick sensitivity setting (Settings > Controls): a small push of the joystick can now give full speed. Default is more sensitive than before.";
+const GR_NOTES = "Buckards 3.0 - built for hours: survive 25 days to BEAT BUCKARDS, then open a new store for a permanent bonus that stacks forever (or keep going endless). Boss days every 5 days (Gary, The Inspector, Bucko Stampede, Power Outage, THE BUCKO KING), five seasons, Price Checks and a Mystery Shopper.";
 const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
@@ -323,6 +323,24 @@ function pickMod(d) {
   const pool = Object.keys(MODS).filter(k => MODS[k].min <= d && k !== G.lastMod);
   return (G.lastMod = pick(pool));
 }
+const WIN_DAY = 25;
+const SEASONS = [
+  { name: 'SPRING', tint: 'rgba(125,255,125,0.04)', pa: ['Spring is here! Seed starters are in aisle 7.', 'Garden center is open. Please do not plant yourself.'] },
+  { name: 'SUMMER', tint: 'rgba(255,204,102,0.06)', pa: ['Grill season! Propane exchange is out front.', 'Pool noodles are back. Please stop sword fighting with them.'] },
+  { name: 'FALL', tint: 'rgba(255,138,61,0.07)', pa: ['Hunting season: blaze orange is 11% off.', 'Leaf rakes are in. So are the leaves, apparently.'] },
+  { name: 'WINTER', tint: 'rgba(207,232,255,0.10)', pa: ['Snow shovels are on the end cap. Get em while they last.', 'Somebody tracked slush in. Again.'] },
+  { name: 'HOLIDAY', tint: 'rgba(255,90,90,0.05)', pa: ['Light up the yard! Inflatable reindeer, aisle 3.', 'Gift cards make great gifts for Buckos who have everything.'] }];
+const seasonOf = d => SEASONS[Math.floor((d - 1) / 5) % 5];
+const BOSSES = {
+  gary: ['GARY\'S BIG DAY', 'Gary got his forklift license back. Forklifts ALL day.'],
+  inspector: ['THE INSPECTOR', 'Corporate is watching. Every mistake counts DOUBLE. A perfect day pays big.'],
+  stampede: ['BUCKO STAMPEDE', 'Twice the Buckos, mostly Speed Walkers.'],
+  outage: ['POWER OUTAGE', 'Lights out AND forklifts. Good luck.'],
+  king: ['THE BUCKO KING', 'A giant golden Bucko worth a fortune. Takes 3 scans. Do NOT let him escape.']
+};
+const bossOf = d => d % 5 ? null : ['gary', 'inspector', 'stampede', 'outage', 'king'][(d / 5 - 1) % 5];
+const franchiseMult = () => 1 + 0.15 * (META.franchise || 0);
+const INSP_LOOK = { skin: '#e0ac69', pants: '#2a2a2a', shirt: 'tee', shirtCol: '#f4f4f4', tie: true, glasses: true, belly: 1.05, hair: '#5a5a5a', hat: 'police', hatCol: '#2a2a2a' };
 const modCash = () => G.mod === 'blackfriday' ? 1.5 : G.mod === 'inspection' ? 2 : 1;
 const R = 17;
 const LINES = {
@@ -400,6 +418,10 @@ const CASHIERS = LANES.map((cx, i) => ({ voice: 300 + i * 30, x: cx + LANE_W / 2
 const AGENTS = [{ x: 330, y: 845, isAgent: true, walk: 0, vx: 0, vy: 0, seed: 2 }, { x: 1300, y: 845, isAgent: true, walk: 0, vx: 0, vy: 0, seed: 5 }];
 
 let nameBag = [];
+function makeKing(b) {
+  Object.assign(b, { king: true, golden: true, sneaky: false, name: 'King', surname: 'Bucko the Third', price: 2500, voice: 120 });
+  b.look = Object.assign(makeLook('regular'), { shirt: 'flannel', shirtCol: '#c9970f', hat: 'crown', hatCol: '#e8c547', belly: 1.6, beard: true, hair: '#8a5a2b' });
+}
 function newBucko(type, x, y, entering) {
   if (!nameBag.length) nameBag = NAMES.slice().sort(() => Math.random() - 0.5);
   const it = type === 'contractor' ? ['load of 2x4s', 0, 'LUMBER', 'plank'] : pick(ITEMS);
@@ -466,24 +488,24 @@ function addScore(v) {              // earnings and fines move the total score; 
   if (G.total > G.best) { G.best = G.total; G.newBest = true; store.set('best', G.best); }
   store.set('total', G.total);
 }
-function earn(v) { if (v > 0) v = Math.round(v * (G.boost === 'cash2' ? 2 : 1) * (1 + shopaholic()) * (G.state === 'play' ? dv('cash') * modCash() : 1)); G.cash += v; G.dayCash += v; addScore(v); if (G.cash >= 5000) badge('rich'); if (G.cash >= 25000) badge('rich25'); }
+function earn(v) { if (v > 0) v = Math.round(v * (G.boost === 'cash2' ? 2 : 1) * (1 + shopaholic()) * (G.state === 'play' ? dv('cash') * modCash() : 1) * franchiseMult()); G.cash += v; G.dayCash += v; addScore(v); if (G.cash >= 5000) badge('rich'); if (G.cash >= 25000) badge('rich25'); }
 function fine(v) { G.cash = Math.max(0, G.cash - v); addScore(-v); }
 
 function dayCfg(d) {
-  let total = Math.min(4 + d * 2, 30) + dv('more'); if (G.mod === 'blackfriday') total = Math.round(total * 1.5);
+  let total = Math.min(4 + d * 2, 30) + dv('more'); if (G.mod === 'blackfriday') total = Math.round(total * 1.5); if (G.boss === 'stampede') total = Math.round(total * 2);
   const time = Math.min(110 + d * 10, 190) + 5 * upL('overtime') + (G.boost === 'overtime' ? 30 : 0);
   const w = [['regular', 1]];
   if (d >= 2) w.push(['coupon', G.mod === 'coupons' ? 1.6 : 0.35]); if (d >= 3) w.push(['contractor', G.mod === 'contractors' ? 1.2 : 0.3]); if (d >= 4) w.push(['squirrely', 0.3]);
-  if (d >= 5) w.push(['speedy', G.mod === 'marathon' ? 1.4 : 0.25]); if (d >= 6) w.push(['grandpa', G.mod === 'seniors' ? 1.4 : 0.25]);
+  if (d >= 5) w.push(['speedy', G.mod === 'marathon' || G.boss === 'stampede' ? 1.6 : 0.25]); if (d >= 6) w.push(['grandpa', G.mod === 'seniors' ? 1.4 : 0.25]);
   return { total, time, w };
 }
 function rollType(w) { let s = w.reduce((a, b) => a + b[1], 0) * Math.random(); for (const [t, k] of w) if ((s -= k) <= 0) return t; return 'regular'; }
 
-const RUN_KEYS = ['diff', 'mod', 'day', 'strikes', 'cash', 'removed', 'bestStreak', 'level', 'quest', 'perks', 'tickets', 'clean', 'extra', 'boost'];
+const RUN_KEYS = ['endless', 'boss', 'diff', 'mod', 'day', 'strikes', 'cash', 'removed', 'bestStreak', 'level', 'quest', 'perks', 'tickets', 'clean', 'extra', 'boost'];
 function saveRun() { const r = {}; for (const k of RUN_KEYS) r[k] = G[k]; store.set('run', r); }
 function newGame(resume) {
   if (!resume) store.set('run', null);
-  Object.assign(G, { diff: META.diff || 0, mod: null, dayBB: 0, tickets: 0, clean: 0, coins: [], banner: null, showCash: 0, extra: 0, day: 1, strikes: 0, cash: 100 * upL('wallet'), removed: 0, newBest: false, streak: 0, bestStreak: 0, snap: null, level: 0, quest: null,
+  Object.assign(G, { won: false, endless: false, boss: null, diff: META.diff || 0, mod: null, dayBB: 0, tickets: 0, clean: 0, coins: [], banner: null, showCash: 0, extra: 0, day: 1, strikes: 0, cash: 100 * upL('wallet'), removed: 0, newBest: false, streak: 0, bestStreak: 0, snap: null, level: 0, quest: null,
     perks: { shoes: 0, lanyard: 0, scanner: upL('sscanner'), whistle: upL('swhistle'), map: upL('smap'), bribe: 0 } });
   if (resume) Object.assign(G, JSON.parse(JSON.stringify(resume)), { perks: Object.assign({}, G.perks, resume.perks) });
   startDay(!!resume);
@@ -495,7 +517,9 @@ function startDay(resumed) {
     if (!META.boosts[META.armed]) META.armed = null; saveShop();
     if (G.boost === 'pardon') G.strikes = Math.max(0, G.strikes - 1);
   }
-  if (!resumed) G.mod = pickMod(G.day);
+  if (!resumed) { G.boss = bossOf(G.day); G.mod = G.boss ? null : pickMod(G.day); }
+  G.insp = G.boss === 'inspector' ? { isInsp: true, x: 760, y: 700, vx: 0, vy: 0, walk: 0, dir: 1, seed: 4, sayT: 6 } : null;
+  G.price = null; G.dayTickets = 0;
   if (!G.diff && G.day >= 5 && META.unlock < 1) { META.unlock = 1; store.set('unlock', 1); G.unlockMsg = 'HARD MODE UNLOCKED - pick it on the title screen (pays 1.5x)'; }
   if (G.diff === 1 && G.day >= 6 && META.unlock < 2) { META.unlock = 2; store.set('unlock', 2); G.unlockMsg = 'NIGHTMARE MODE UNLOCKED - if you dare (pays 2.2x)'; }
   const c = dayCfg(G.day);
@@ -525,6 +549,9 @@ function startDay(resumed) {
     const n = G.day === 1 ? 1 : G.day < 4 ? 2 : 3;
     for (let i = 0; i < n; i++) G.events.push({ kind: G.day === 1 ? 'spill' : kinds[i], at: c.time * (0.75 - i * 0.22) - rnd(0, 8) }); }
   if (G.mod === 'slippery') for (const at of [0.85, 0.55, 0.3]) G.events.push({ kind: 'spill', at: c.time * at });
+  if (G.day >= 2) for (let i = 0; i < (G.day >= 8 ? 2 : 1); i++) G.events.push({ kind: 'price', at: c.time * rnd(0.25, 0.8) });
+  if (G.day >= 3 && G.spawns.length) pick(G.spawns).mystery = true;
+  if (G.boss === 'king') G.spawns.push({ at: c.time * 0.72, type: 'regular', king: true });
   if (G.mod === 'mob') for (const at of [0.8, 0.5]) for (let k = 0; k < 4; k++) G.spawns.push({ at: c.time * at, type: rollType(c.w), mob: k === 0 });
   if (G.day >= 5) badge('day5'); if (G.day >= 10) badge('day10'); if (G.day >= 15) badge('day15'); if (G.day >= 20) badge('day20');
   G.state = 'intro'; saveRun();
@@ -577,6 +604,8 @@ const BADGES = [
   ['shop25', 'Shopaholic', 'Own 25 things from the Company Store'], ['shop75', 'Mega Shopper', 'Own 75 things from the Company Store'],
   ['shop150', 'Bought the Whole Store', 'Own 150 things from the Company Store'], ['tier3', 'Corporate Ladder', 'Reach tier III on any upgrade'],
   ['rank15', 'Executive Material', 'Reach the rank of Area VP'], ['light25', 'Speed Demon', 'Get 25 lightning tips (all time)'],
+  ['beat', 'Bucko Champion', 'Beat Buckards: survive all 25 days'], ['franchise3', 'Franchise Empire', 'Open 3 new Buckards stores'],
+  ['king', 'Long Live the King', 'Get the Bucko King out (day 25)'], ['inspect', 'Passed Inspection', 'Get through Inspector day with no mistakes'],
   ['tipjar', 'Tip Jar Overflowing', 'Earn $1,000 in tips in one day'], ['lot', 'Curb Appeal', 'Own every LOT decoration']];
 const CAREER = { light: store.get('cLight', 0), dex: store.get('dex', []), xp: store.get('xp', 0), out: store.get('cOut', 0), caught: store.get('cCaught', 0), badges: store.get('badges', []) };
 const rankOf = xp => { let i = 0; while (i + 1 < RANKS.length && xp >= RANKS[i + 1][0]) i++; return i; };
@@ -768,7 +797,7 @@ const SHOP = [];
 const shopItem = id => SHOP.find(it => it.id === id);
 const FANCY_HATS = new Set(['cheese', 'cowboy', 'chef', 'top', 'prop', 'viking', 'party', 'fez', 'bucket', 'cone', 'crown', 'tricorn']);
 const HAIR_HATS = new Set(['party', 'fez', 'crown', 'cone', 'cheese']);
-const META = { diff: store.get('diff', 0), unlock: store.get('unlock', 0), lotHide: store.get('lotHide', []), own: store.get('own', []), eq: store.get('eq', { hat: 'hat:visor', vest: 'vest:green', cart: 'cart:steel' }), boosts: store.get('boosts', {}), armed: store.get('armed', null),
+const META = { franchise: store.get('franchise', 0), diff: store.get('diff', 0), unlock: store.get('unlock', 0), lotHide: store.get('lotHide', []), own: store.get('own', []), eq: store.get('eq', { hat: 'hat:visor', vest: 'vest:green', cart: 'cart:steel' }), boosts: store.get('boosts', {}), armed: store.get('armed', null),
   bb: store.get('bb', 0), up: store.get('up', {}), login: store.get('login', { last: '', streak: 0 }), missions: null };
 const NO_TIER = new Set(['line', 'behave', 'swhistle', 'smap', 'sscanner']);
 const upRaw = id => META.up[id] || 0;
@@ -799,7 +828,7 @@ function buyItem(it) {
 }
 function bb(n, why) {
   if (G.boost === 'bb2') n *= 2;
-  n = Math.round(n * dv('bb'));
+  n = Math.round(n * dv('bb') * franchiseMult());
   META.bb += n; store.set('bb', META.bb); G.dayBB = (G.dayBB || 0) + n;
   if (why) G.pops.push({ x: G.player.x + 40, y: G.player.y - 40, text: `+${n} BB`, color: '#9fe0ff', size: 16, t: 0 });
 }
@@ -874,8 +903,9 @@ function strike(why) {
     return;
   }
   if (G.boost === 'waiver' && !G.waived) { G.waived = true; S.bad(); pop(G.player.x, G.player.y - 90, 'TICKET WAIVED (boost)', '#9fe0ff', 22); return; }
-  G.tickets = (G.tickets || 0) + 1; G.streak = 0; G.clean = 0;
-  const isStrike = G.tickets % 2 === 0 || G.mod === 'inspection' || G.diff === 2;   // inspections and Nightmare skip the warning                   // the first mistake is just a fine; the second is a strike too
+  G.tickets = (G.tickets || 0) + 1; G.streak = 0; G.clean = 0; G.dayTickets = (G.dayTickets || 0) + 1;
+  if (G.boss === 'inspector') { G.strikes++; if (G.insp) G.insp.say = { text: pick(['That is going in my report.', 'Mm-hm. DOUBLE strike.', 'Corporate will hear about this.']), t: 0, life: 2.6 }; }
+  const isStrike = G.boss === 'inspector' || G.tickets % 2 === 0 || G.mod === 'inspection' || G.diff === 2;   // inspections and Nightmare skip the warning                   // the first mistake is just a fine; the second is a strike too
   if (isStrike) G.strikes++;
   const bombers = G.strikes >= MAX_STRIKES;
   let f = bombers ? 0 : isStrike ? 50 + 25 * G.day : 30 + 10 * G.day;   // the bombers bring their own bill
@@ -910,6 +940,10 @@ function startEvent(kind) {
   } else if (kind === 'bus') {
     banner('BUS TOUR!', 'The Lutheran church group has arrived', '#ffe14d'); paSay('Welcome, First Lutheran of Fergus Falls! Please stay together.');
     for (let i = 0; i < 5; i++) { const b = newBucko('regular', 150 + i * 18, 880 + i * 24, true); G.buckos.push(b); }
+  } else if (kind === 'price') {
+    const a = pick(AISLES), A = AREAS[a];
+    G.price = { aisle: a, pt: { x: A.cx, y: A.y + A.h / 2 }, t: 20 };
+    banner('PRICE CHECK!', `Get to ${a} in 20 seconds`, '#9fe0ff'); paSay(`Price check on ${a}! Price check on ${a}!`);
   } else if (kind === 'raccoon') {
     G.raccoon = { x: 1500, y: 620, vx: -170, vy: 0, t: 32, walk: 0, turn: 0.5 };
     banner('RACCOON IN THE STORE!', 'Catch it - animal control pays a $250 bounty', '#c8c8c8'); paSay('Uh, there is a raccoon in the building. Please do not feed the raccoon.');
@@ -928,6 +962,11 @@ function updateEvents(dt) {
     G.hotdogT -= dt;
     for (const b of G.buckos) if ((b.state === 'shop' || b.state === 'wait') && !b.target) b.target = { x: rnd(110, 230), y: rnd(560, 680) };
     if (G.hotdogT <= 0) for (const b of G.buckos) if (b.state === 'shop' || b.state === 'wait') b.target = null;
+  }
+  if (G.price) {
+    const pc = G.price; pc.t -= dt;
+    if (dist(p, pc.pt) < 70) { const cash = 150 + 20 * G.day; earn(cash); addXP(20); bb(2); S.fanfare(); spawnCoins(pc.pt.x, pc.pt.y, 6); banner('PRICE CHECKED!', `${pc.aisle}: done with ${Math.ceil(pc.t)}s left  ·  +${money(cash)}`, '#7dff7d'); G.price = null; }
+    else if (pc.t <= 0) { pop(p.x, p.y - 70, 'PRICE CHECK MISSED', '#ff8080', 20); S.nope(); G.price = null; }
   }
   const r = G.raccoon;
   if (r) {
@@ -954,6 +993,11 @@ function drawEvents() {
     g.fillStyle = '#f2c500'; g.beginPath(); g.moveTo(sx, sy - 22); g.lineTo(sx + 12, sy + 10); g.lineTo(sx - 12, sy + 10); g.closePath(); g.fill();
     g.strokeStyle = '#333'; g.lineWidth = 1.5; g.stroke(); text('!', sx, sy, 14, '#222');
     g.globalAlpha = 1;
+  }
+  if (G.price) {                                       // a steady marker on the aisle, with the seconds left
+    const pc = G.price; g.strokeStyle = '#9fe0ff'; g.lineWidth = 5; g.beginPath(); g.arc(pc.pt.x, pc.pt.y, 46, 0, 7); g.stroke();
+    g.strokeStyle = '#ffe14d'; g.lineWidth = 5; g.beginPath(); g.arc(pc.pt.x, pc.pt.y, 46, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pc.t / 20); g.stroke();
+    text('PRICE CHECK', pc.pt.x, pc.pt.y - 8, 14, '#fff', 'center', '900', '#14306b'); text(Math.ceil(pc.t) + 's', pc.pt.x, pc.pt.y + 14, 18, '#ffe14d', 'center', '900', '#14306b');
   }
   const rc = G.raccoon;
   if (rc) {
@@ -1030,7 +1074,10 @@ function openDoors() {
   }
   if (G.unlockMsg) { const m = G.unlockMsg; G.unlockMsg = null; setTimeout(() => banner('UNLOCKED!', m, '#ffb08a'), 3200); }
   if (G.mod) setTimeout(() => { if (G.state === 'play') paSay(`Attention Buckards staff: today is ${MODS[G.mod].name}. ${MODS[G.mod].desc}.`); }, 1500);
-  banner('DOORS OPEN', `Day ${G.day}  ·  ${dayCfg(G.day).total} Buckos` + (G.mod ? `  ·  ${MODS[G.mod].name}` : G.boost ? `  ·  BOOST: ${shopItem('boost:' + G.boost).name}` : '  ·  doors close at 9:00'), '#ffe14d');
+  if (G.boss) setTimeout(() => { if (G.state === 'play') { paSay(`BOSS DAY: ${BOSSES[G.boss][0]}. ${BOSSES[G.boss][1]}`); banner('BOSS DAY!', BOSSES[G.boss][0], '#ff9a8a'); } }, 2600);
+  if (G.day > 1 && G.day % 5 === 1) setTimeout(() => banner(`${seasonOf(G.day).name} IS HERE`, 'A new season at Buckards', '#ffe14d'), 5200);
+  if (G.day >= 3) setTimeout(() => { if (G.state === 'play' && !G.pa) paSay('Psst: a mystery shopper is in the store today. Treat every Bucko like royalty.'); }, 9000);
+  banner('DOORS OPEN', `Day ${G.day}  ·  ${dayCfg(G.day).total} Buckos` + (G.boss ? `  ·  BOSS: ${BOSSES[G.boss][0]}` : G.mod ? `  ·  ${MODS[G.mod].name}` : G.boost ? `  ·  BOOST: ${shopItem('boost:' + G.boost).name}` : '  ·  doors close at 9:00'), '#ffe14d');
 }
 function banner(text, sub, col = '#ffe14d') { G.banner = { text, sub, col, t: 0 }; }
 function spawnCoins(x, y, n) {           // world point -> flying to the wallet in the HUD
@@ -1041,7 +1088,7 @@ function reopen() { G.level = Math.min(G.level + 1, LADDER.length - 1); G.strike
 function primary() {                       // Space / Enter: the obvious next thing on each screen
   if (G.state === 'title') { if (META.loginReward) META.loginReward = null; else if (G.showBadges || G.showUpgrades || G.showMissions || G.showSettings) G.showBadges = G.showUpgrades = G.showMissions = G.showSettings = false; else { const run = store.get('run', null); newGame(run && run.day ? run : undefined); } }
   else if (G.state === 'intro') openDoors();
-  else if (G.state === 'summary') G.state = 'shop';
+  else if (G.state === 'summary') G.state = G.won ? 'victory' : 'shop';
   else if (G.state === 'shop') { G.day++; startDay(); }
   else if (G.state === 'pause') resume();
   else if (G.state === 'aftermath' && G.as.t > G.as.end + 2) reopen();
@@ -1173,6 +1220,13 @@ function update(dt) {
   const last = p.trail[p.trail.length - 1];
   if (Math.hypot(p.x - last.x, p.y - last.y) > 4) { p.trail.push({ x: p.x, y: p.y }); if (p.trail.length > 700) p.trail.shift(); }
   G.whistleCD = Math.max(0, G.whistleCD - dt);
+  if (G.insp) {                                        // the Inspector shadows you with a clipboard
+    const ins = G.insp, tx = p.x + p.dir * 70, ty = p.y - 30, dd = Math.hypot(tx - ins.x, ty - ins.y);
+    if (dd > 30) { stepToward(ins, { x: tx, y: ty }, Math.min(260, 60 + dd * 1.5), dt); ins.walk += dt * 9; pushOut(ins, R); } else ins.vx = ins.vy = 0;
+    ins.dir = p.x > ins.x ? 1 : -1;
+    if (ins.say) { ins.say.t += dt; if (ins.say.t > ins.say.life) ins.say = null; }
+    if ((ins.sayT -= dt) <= 0) { ins.sayT = rnd(8, 15); ins.say = { text: pick(['Mm-hm.', '*writes something down*', 'Is that up to code?', 'Interesting technique.', 'I\'ll allow it.', 'Corporate is watching.']), t: 0, life: 2.4 }; }
+  }
   if (G.pet) {                                         // your pet trots along behind you
     const pt = G.pet, tx = p.x - p.dir * 34, ty = p.y + 14, dd = Math.hypot(tx - pt.x, ty - pt.y);
     if (dd > 6) { stepToward(pt, { x: tx, y: ty }, Math.max(140, dd * 4), dt); pt.walk += dt * 14; } else pt.vx = pt.vy = 0;
@@ -1181,7 +1235,7 @@ function update(dt) {
   }
 
   // PA, lane closures, the clock, the quest timer
-  G.paT -= dt; if (G.paT <= 0) { G.paT = rnd(24, 40); paSay(G.strikes >= MAX_STRIKES - 2 && Math.random() < 0.5 ? 'Attention: federal agents are in the store. Please shop normally.' : pick(PA_LINES)); }
+  G.paT -= dt; if (G.paT <= 0) { G.paT = rnd(24, 40); paSay(G.strikes >= MAX_STRIKES - 2 && Math.random() < 0.5 ? 'Attention: federal agents are in the store. Please shop normally.' : Math.random() < 0.4 ? pick(seasonOf(G.day).pa) : pick(PA_LINES)); }
   if (G.day >= 3) {
     G.closeT -= dt;
     if (G.closeT <= 0) {
@@ -1197,6 +1251,8 @@ function update(dt) {
   updateEvents(dt);
   for (const s of G.spawns) if (!s.done && G.timer <= s.at) {
     s.done = true; G.buckos.push(newBucko(s.type, rnd(150, 230), 880, true));
+    const nb = G.buckos[G.buckos.length - 1]; if (s.mystery) nb.mystery = true;
+    if (s.king) { makeKing(nb); paSay('Hear ye, hear ye! The Bucko King has entered the store!'); banner('THE BUCKO KING HAS ARRIVED', 'Find his item, 3 scans, out the EXIT. Do NOT lose him.', '#ffe14d'); }
     if (s.mob) { paSay('FLASH MOB at the entrance! Somebody stop the dancing!'); banner('FLASH MOB!', 'Four Buckos just danced in the door', '#ff9ad0'); }
   }
   updateForks(dt);
@@ -1313,10 +1369,10 @@ function update(dt) {
       else {
         CASHIERS[lane].busy = 0.4;
         const need = scanNeed();
-        if (b.type === 'coupon') { b.scanT += dt; if (b.scanT >= need) scanned(b); else if (Math.random() < dt * 6) S.tone(1200, 0.03, 'square', 0.04); }
+        if (b.type === 'coupon' || b.king) { b.scanT += dt; if (b.scanT >= need * (b.king ? 3 : 1)) scanned(b); else if (b.king && !b.scanNote) { b.scanNote = true; pop(b.x, b.y - 70, 'SCANNING THE KING... HOLD STILL', '#ffe14d', 18); } else if (Math.random() < dt * 6) S.tone(1200, 0.03, 'square', 0.04); }
         else scanned(b);
       }
-    } else if (!inLane && b.type === 'coupon' && !b.scanned && b.scanT > 0) b.scanT = Math.max(0, b.scanT - dt * 2);
+    } else if (!inLane && (b.type === 'coupon' || b.king) && !b.scanned && b.scanT > 0) b.scanT = Math.max(0, b.scanT - dt * 2);
     // a paid Bucko goes OUT, not back into the store
     if (b.scanned && b.type !== 'contractor' && b.y < BACK_IN_Y) {
       b.backT = (b.backT || 0) + dt;
@@ -1350,6 +1406,8 @@ function escape(b) {
   b.state = 'leaving'; b.out = 0; b.vx = 0; b.vy = 120;
   pop(b.x, b.y - 52, 'ESCAPED!', '#ff4d4d', 28);
   strike(`${b.name} escaped without paying for his Bucko Goods (${b.item}).`);
+  if (b.king) { strike('THE BUCKO KING ESCAPED. Corporate is furious.'); banner('THE KING ESCAPED!', 'That is going to cost you', '#ff6a6a'); }
+  if (b.mystery) setTimeout(() => banner('MYSTERY SHOPPER: * 1 STAR', '"Nobody stopped me from leaving." Ouch.', '#ff9a8a'), 1400);
 }
 function leave(b, door) {
   const p = G.player; p.chain.splice(p.chain.indexOf(b), 1);
@@ -1362,7 +1420,7 @@ function leave(b, door) {
   else if (door === 'exit' && b.type === 'contractor') bad = `${b.name} is a CONTRACTOR. Contractors leave through the Lumber Yard gate.`;
   else if (door === 'exit' && !b.scanned) bad = `UNPAID EXIT! ${b.name} walked out with Bucko Goods he never paid for.`;
   G.removed++; G.dayRemoved++;
-  if (bad) { pop(b.x, b.y - 52, 'WRONG!', '#ff4d4d', 30); b.say = { text: 'Uh oh...', t: 0, life: 1.2 }; strike(bad); return; }
+  if (bad) { pop(b.x, b.y - 52, 'WRONG!', '#ff4d4d', 30); b.say = { text: 'Uh oh...', t: 0, life: 1.2 }; strike(bad); if (b.mystery) setTimeout(() => banner('MYSTERY SHOPPER: * 1 STAR', '"They threw me out the wrong door."', '#ff9a8a'), 1400); return; }
   G.streak++; G.bestStreak = Math.max(G.bestStreak, G.streak);
   G.clean = (G.clean || 0) + 1;
   if (G.clean >= cleanNeed() && G.strikes > 0) { G.strikes--; G.clean = 0; S.fanfare(); banner('GOOD BEHAVIOR', `${cleanNeed()} clean exits in a row - one strike removed`, '#7dff7d'); }
@@ -1378,6 +1436,12 @@ function leave(b, door) {
     pop(b.x, b.y - 100, `${lightning ? 'LIGHTNING TIP' : secs < 45 ? 'QUICK TIP' : 'TIP'} +${money(tip)}  (${Math.round(secs)}s)`, lightning ? '#ffe14d' : '#9fe0ff', lightning ? 22 : 17);
     if (G.tipsToday >= 1000) badge('tipjar');
     if (lightning) { mission('lightning'); CAREER.light = (CAREER.light || 0) + 1; store.set('cLight', CAREER.light); if (CAREER.light >= 25) badge('light25'); say(b, 'thanks', 1.2); b.say.text = pick(['That was FAST. Here, take this.', 'In and out! Love it!', 'Fastest trip of my life, bud', 'Ope, already done? Here ya go']); }
+  }
+  if (b.king) { v += 3000; badge('king'); bb(15); setTimeout(() => banner('LONG LIVE THE KING!', 'King Bucko the Third paid in gold  ·  +$3,000 +15 BB', '#ffe14d'), 2700); }
+  if (b.mystery) {                                     // the secret shopper writes the review on the way out
+    const stars = secs < 40 ? 5 : secs < 80 ? 3 : 1, cash = [0, 0, 0, 200, 0, 600][stars];
+    if (cash) { v += cash; bb(stars === 5 ? 15 : 5); }
+    setTimeout(() => banner(`MYSTERY SHOPPER: ${'*'.repeat(stars)} ${stars} STAR${stars > 1 ? 'S' : ''}`, stars === 5 ? `"Fast and friendly!"  ·  +$600 +15 BB` : stars === 3 ? `"Pretty good."  ·  +$200 +5 BB` : '"I waited forever." Corporate is disappointed.', stars === 5 ? '#7dff7d' : stars === 3 ? '#ffe14d' : '#ff9a8a'), 1400);
   }
   if (b.golden) { v = v * 5 + 100; banner('GOLDEN BUCKO!', `${b.name} tipped like royalty  ·  x5`, '#ffe14d'); S.jackpot(); confetti(b.x, b.y - 30, 60); badge('golden'); }
   addXP(b.golden ? 60 : 10 + Math.min(G.streak, 10));
@@ -1432,7 +1496,13 @@ function endDay(closing) {
   if (bonus) earn(bonus);
   bb(5 + Math.min(G.day, 10)); mission('day', G.day + 1, true);
   G.tipsToday = 0;
-  G.summary = { left: closing ? left.length : 0, bonus, ticket: rollTicket(), scratched: false, scratchT: 0 };
+  let bossNote = null;
+  if (G.boss) {
+    bb(25); earn(1000); bossNote = `BOSS DAY SURVIVED: ${BOSSES[G.boss][0]}  ·  +$1,000 +25 BB`;
+    if (G.boss === 'inspector' && !G.dayTickets) { earn(1500); bb(20); badge('inspect'); bossNote = 'PERFECT INSPECTION!  ·  +$2,500 +45 BB'; }
+  }
+  if (!G.endless && G.day >= WIN_DAY) { G.won = true; G.vicFx = false; badge('beat'); bb(100); }
+  G.summary = { bossNote, left: closing ? left.length : 0, bonus, ticket: rollTicket(), scratched: false, scratchT: 0 };
   G.state = 'summary';
 }
 
@@ -1441,6 +1511,7 @@ function objective() {
   const p = G.player, line = p.chain;
   const runner = G.buckos.find(b => b.state === 'runner');
   if (runner && line.length < maxLine()) return { pt: runner, warn: true, text: `${runner.name} is making a run for it! Catch him before he reaches a door.` };
+  if (G.price) return { pt: G.price.pt, warn: true, text: `PRICE CHECK on ${G.price.aisle}! ${Math.ceil(G.price.t)} seconds.` };
   if (!line.length) {
     let best = null, bd = 1e9;
     for (const b of G.buckos) if ((b.state === 'wait' || b.state === 'shop') && b.cool <= 0) { const d = dist(b, p) + (b.has ? -b.patience * 3 : 600); if (d < bd) { bd = d; best = b; } }
@@ -1601,7 +1672,7 @@ function trailPuff(p) {
     c: pick(t.cols), s: t.kind === 'glyph' ? 15 : t.kind === 'smoke' ? 5 : 4, kind: t.kind, g: t.glyph });
 }
 function updateForks(dt) {
-  const p = G.player, often = G.mod === 'forklift' ? [8, 13] : G.day >= 4 ? [30, 48] : null;
+  const p = G.player, often = G.boss === 'gary' ? [5, 8] : G.mod === 'forklift' || G.boss === 'outage' ? [8, 13] : G.day >= 4 ? [30, 48] : null;
   G.forkT -= dt;
   if (often && G.forkT <= 0) {
     G.forkT = rnd(often[0], often[1]);
@@ -2076,13 +2147,13 @@ function drawBucko(b) {
   if (b.golden && !b.rag && b.state !== 'leaving') { g.strokeStyle = 'rgba(255,215,60,0.75)'; g.lineWidth = 3; g.beginPath(); g.ellipse(b.x, b.y + R * 0.95, R * 1.5, R * 0.6, 0, 0, 7); g.stroke(); }
   if ((b.state === 'shop' || b.state === 'wait') && !b.rag && b.type !== 'contractor') drawCart(b);
   const t = b.type, alpha = b.state === 'leaving' ? clamp(1 - b.out / 1.1, 0, 1) : null, runner = b.state === 'runner';
-  drawPerson(b, b.look, { carry: b.has && !((b.state === 'shop' || b.state === 'wait') && t !== 'contractor') ? b.kind : t === 'coupon' ? 'coupons' : null, wide: t === 'squirrely' || runner,
+  drawPerson(b, b.look, { r: b.king ? 27 : undefined, carry: b.has && !((b.state === 'shop' || b.state === 'wait') && t !== 'contractor') ? b.kind : t === 'coupon' ? 'coupons' : null, wide: t === 'squirrely' || runner,
     jitter: t === 'squirrely' && b.state !== 'chain' && !b.rag, alpha, hop: b.happy && b.state === 'leaving' ? Math.abs(Math.sin(b.out * 13)) * 12 : 0, forceWalk: b.state === 'leaving', angry: runner || (b.state === 'wait' && b.patience < 12 && !b.scanned) });
   if (b.rag || b.state === 'leaving') return;
   const inLine = b.state === 'chain', near = dist(b, G.player) < 150, named = SET.names === 'always' || inLine || near || runner;
   if (SET.names !== 'off' || runner || inLine) {
     const label = named ? b.name + ' ' + b.surname : 'Bucko', fs2 = named ? 13 : 11;
-    g.font = `700 ${fs2}px ${FB}`; const w = g.measureText(label).width + 12, ty = b.y - R * 2.75;
+    g.font = `700 ${fs2}px ${FB}`; const w = g.measureText(label).width + 12, ty = b.y - (b.king ? 27 : R) * 2.75;
     g.globalAlpha = named ? 1 : 0.7;
     g.fillStyle = b.golden ? 'rgba(150,110,0,0.95)' : runner ? 'rgba(190,20,20,0.92)' : inLine ? 'rgba(10,90,42,0.92)' : 'rgba(0,0,0,0.55)';
     rr(b.x - w / 2, ty - fs2 / 2 - 3, w, fs2 + 6, 6); g.fill();
@@ -2775,7 +2846,7 @@ function drawTitle(t) {
     text(`STREAK: ${META.login.streak} DAY${META.login.streak > 1 ? 'S' : ''}`, 1100, 753, 15, '#ffb08a', 'center', '900'); }
   { const r = rankOf(CAREER.xp), lo = RANKS[r][0], hi = RANKS[r + 1] ? RANKS[r + 1][0] : lo + 1, k = RANKS[r + 1] ? clamp((CAREER.xp - lo) / (hi - lo), 0, 1) : 1;
     g.fillStyle = 'rgba(8,22,14,0.85)'; rr(470, 786, 660, 48, 20); g.fill();
-    text(`${RANKS[r][1]}  ·  Total ${money(G.total)}  ·  Best ${money(G.best)}`, 800, 802, 17, '#fff', 'center', '800', null, FB);
+    text(`${RANKS[r][1]}  ·  Store #${(META.franchise || 0) + 1}${META.franchise ? ` (+${15 * META.franchise}%)` : ''}  ·  Best ${money(G.best)}`, 800, 802, 17, '#fff', 'center', '800', null, FB);
     g.fillStyle = 'rgba(255,255,255,0.15)'; g.fillRect(560, 820, 480, 5); g.fillStyle = '#ffe14d'; g.fillRect(560, 820, 480 * k, 5); }
   if (!touchy()) {
     g.fillStyle = 'rgba(8,22,14,0.75)'; rr(470, 842, 660, 32, 16); g.fill();
@@ -2975,7 +3046,11 @@ function drawIntro() {
   text('SHIFT BRIEFING', x + 60, y + 72, 18, '#0a7a36', 'left');
   text('DAY ' + G.day, x + w - 60, y + 72, 34, '#0a7a36', 'right');
   if (G.diff) text(['', 'HARD MODE', 'NIGHTMARE MODE'][G.diff], x + w - 60, y + 100, 13, G.diff === 2 ? '#8a1a1a' : '#c26a00', 'right', '900');
-  if (G.mod) {
+  text(seasonOf(G.day).name + (G.endless ? '  ·  ENDLESS' : `  ·  DAY ${G.day} OF ${WIN_DAY}`), x + 60, y + 100 + 26, 13, '#8a6d10', 'left', '900');
+  if (G.boss) {
+    g.fillStyle = '#5a0f0f'; rr(x + 50, y + 398, w - 100, 42, 10); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 2; g.stroke();
+    fitText(`BOSS DAY: ${BOSSES[G.boss][0]}  -  ${BOSSES[G.boss][1]}`, x + w / 2, y + 420, w - 130, 17, '#ffe14d', 'center', '900', FB);
+  } else if (G.mod) {
     g.fillStyle = '#2a1a4a'; rr(x + 50, y + 398, w - 100, 42, 10); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 2; g.stroke();
     fitText(`TODAY'S TWIST: ${MODS[G.mod].name}  -  ${MODS[G.mod].desc}`, x + w / 2, y + 420, w - 130, 17, '#ffe14d', 'center', '900', FB);
   }
@@ -2994,10 +3069,32 @@ function drawIntro() {
    ['✓', 'Register (red $ = unpaid), then the EXIT - never back inside', '#196f3d'],
    ['!', 'Bars under waiting Buckos = patience. Empty bar = he RUNS.', '#c27a00'],
    ['✗', 'Never the ENTRANCE. Never early. Never unpaid. Every strike is a fine.', '#c0392b'],
-   ['✈', `${G.mod === 'inspection' || G.diff === 2 ? 'Every mistake = STRIKE today.' : '1st mistake = fine, 2nd = strike.'} ${MAX_STRIKES} strikes = Bucko Bombers (${T.ac}). Now: ${G.strikes}/${MAX_STRIKES}`, '#c0392b']]
+   ['✈', `${G.boss === 'inspector' ? 'Every mistake = DOUBLE strike today!' : G.mod === 'inspection' || G.diff === 2 ? 'Every mistake = STRIKE today.' : '1st mistake = fine, 2nd = strike.'} ${MAX_STRIKES} strikes = Bucko Bombers (${T.ac}). Now: ${G.strikes}/${MAX_STRIKES}`, '#c0392b']]
     .forEach(([m, l, col], i) => { text(m, x + 70, y + 245 + i * 34, 19, col); text(l, x + 96, y + 245 + i * 34, 17, '#333', 'left', '700', null, FB); });
   if (G.quest) text(`Quest: ${G.quest.text} → ${money(G.quest.reward)}`, x + w / 2, y + h - 104, 17, '#0a5a2a', 'center', '800', null, FB);
   button(x + w / 2 - 170, y + h - 84, 340, 60, 'OPEN THE DOORS', openDoors, { size: 26 });
+}
+function drawVictory() {
+  paper(330, 110, 940, 760);
+  if (!G.vicFx) { G.vicFx = true; confettiUI(800, 300); confettiUI(520, 260); confettiUI(1080, 260); }
+  drawUIConfetti();
+  text('YOU BEAT BUCKARDS!', 800, 180, 50, '#c9a227', 'center', '900', '#06331a');
+  text(`25 days survived on ${['Normal', 'Hard', 'Nightmare'][G.diff || 0]}  ·  ${money(G.total)} total score  ·  +100 Bucko Bucks`, 800, 232, 18, '#333', 'center', '800', null, FB);
+  drawPerson({ x: 800, y: 360, dir: 1, vx: 0, vy: 0, walk: G.clock * 6, seed: 2 }, playerLook(), { r: 40, hop: Math.abs(Math.sin(G.clock * 4)) * 14 });
+  const nf = (META.franchise || 0) + 1;
+  text('What now, boss?', 800, 470, 24, '#0a7a36', 'center', '900');
+  button(370, 500, 420, 150, '', () => {
+    META.franchise = nf; store.set('franchise', nf); if (nf >= 3) badge('franchise3');
+    store.set('run', null); G.state = 'title'; banner('NEW STORE OPENED', `Buckards #${nf + 1} is open. Everything pays +${Math.round(15 * nf)}% forever.`, '#7dff7d');
+  }, { bg: '#0a7a36', bg2: '#13a64c' });
+  text('OPEN A NEW STORE', 580, 545, 26, '#fff', 'center', '900', 'rgba(0,0,0,0.3)');
+  text(`Start over at day 1, but every`, 580, 585, 15, '#eaffea', 'center', '800', null, FB);
+  text(`dollar and Bucko Buck pays +${15 * nf}% FOREVER`, 580, 607, 15, '#eaffea', 'center', '800', null, FB);
+  button(810, 500, 420, 150, '', () => { G.endless = true; G.won = false; G.state = 'shop'; }, { bg: '#1d4f7a', bg2: '#2d72ad' });
+  text('KEEP GOING (ENDLESS)', 1020, 545, 24, '#fff', 'center', '900', 'rgba(0,0,0,0.3)');
+  text('Same store, no end. How far', 1020, 585, 15, '#e0f0ff', 'center', '800', null, FB);
+  text('can you go? Boss every 5 days.', 1020, 607, 15, '#e0f0ff', 'center', '800', null, FB);
+  text(`Stores opened so far: ${META.franchise || 0}  ·  current bonus +${15 * (META.franchise || 0)}%`, 800, 700, 15, '#555', 'center', '700', null, FB);
 }
 function drawSummary() {
   const x = 560, y = 160, w = 480, h = 630;
@@ -3006,7 +3103,7 @@ function drawSummary() {
   for (let k = 0; k <= w; k += 20) g.lineTo(x + k, y + (k / 20 % 2 ? 8 : 0));
   g.lineTo(x + w, y + h); for (let k = w; k >= 0; k -= 20) g.lineTo(x + k, y + h - (k / 20 % 2 ? 8 : 0)); g.closePath(); g.fill();
   text('BUCKARDS', x + w / 2, y + 48, 34, '#0a7a36');
-  text(`STORE #0111 · DAY ${G.day} · CLOSED`, x + w / 2, y + 82, 15, '#444', 'center', '700', null, FM);
+  text(`STORE #${String(111 + (META.franchise || 0)).padStart(4, '0')} · DAY ${G.day} · ${seasonOf(G.day).name} · CLOSED`, x + w / 2, y + 82, 15, '#444', 'center', '700', null, FM);
   g.strokeStyle = '#999'; g.setLineDash([6, 5]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 30, y + 104); g.lineTo(x + w - 30, y + 104); g.stroke();
   const s = G.summary;
   const rows = [['BUCKOS REMOVED', String(G.dayRemoved)], ['EARNED TODAY', money2(G.dayCash)], ['EARLY CLOSE BONUS', money2(s.bonus)],
@@ -3019,7 +3116,9 @@ function drawSummary() {
   for (let k = 0; k < 34; k++) { g.fillStyle = '#222'; g.fillRect(x + 80 + k * 9.5, y + 456, (k * 7 % 3) + 1.5, 36); }
   text('THANK YOU FOR SHOPPING BUCKARDS', x + w / 2, y + 510, 13, '#444', 'center', '700', null, FM);
   g.globalAlpha = 1;
-  button(x + 40, y + h - 90, w - 80, 60, 'PERKS CATALOG →', () => { G.state = 'shop'; }, { size: 24 });
+  if (s.bossNote) fitText(s.bossNote, x + w / 2, y - 24, 760, 20, '#ffe14d', 'center', '900');
+  if (G.won) button(x + 40, y + h - 90, w - 80, 60, 'YOU BEAT BUCKARDS! →', () => { G.state = 'victory'; G.stateT = 0; S.jackpot(); }, { size: 22, bg: '#8a6d10', bg2: '#c9a227' });
+  else button(x + 40, y + h - 90, w - 80, 60, 'PERKS CATALOG →', () => { G.state = 'shop'; }, { size: 24 });
   drawTicket(1080, 300);
   drawUpdateBanner(800, 125);
 }
@@ -3346,15 +3445,18 @@ function frame(now) {
     g.setTransform(dpr * cam.s, 0, 0, dpr * cam.s, dpr * (cam.tx + sh.x), dpr * (cam.ty + sh.y));
     g.drawImage(staticLayer, 0, 0, W, H);
     if (G.decals.length && decalCv) g.drawImage(decalCv, 0, 0, W, H);
+    g.fillStyle = seasonOf(G.day).tint; g.fillRect(0, 0, W, H);
     drawEvents();
     drawForks();
     drawArrow();
     const people = [...G.buckos, G.player, ...CASHIERS, ...G.cops];
     if (G.pet && META.eq.pet) people.push(G.pet);
+    if (G.insp) people.push(G.insp);
     if (G.strikes >= MAX_STRIKES - 2 && !isAir()) people.push(...AGENTS);
     people.sort((a, b) => a.y - b.y);
     for (const e of people) {
       if (e === G.player) { if (!(G.as && G.as.hitPlayer && !e.rag)) drawPerson(e, playerLook(), { r: 19 }); }
+      else if (e.isInsp) { drawPerson(e, INSP_LOOK, { carry: 'coupons' }); text('INSPECTOR', e.x, e.y - 52, 11, '#fff', 'center', '900', '#14306b'); if (e.say) drawBubble(e); }
       else if (e.isPet) drawPet(META.eq.pet, e.x, e.y, e.dir, e.walk, Math.hypot(e.vx, e.vy) > 5);
       else if (e.isCashier) drawCashier(e);
       else if (e.isAgent) { e.dir = G.player.x > e.x ? 1 : -1; drawPerson(e, AGENT_LOOK); }
@@ -3369,7 +3471,7 @@ function frame(now) {
       text('YOU', p.x, y - 18, 11, '#ffe14d', 'center', '900', '#06331a');
       const ti = META.eq.title && shopItem(META.eq.title); if (ti) text(ti.name, p.x, y - 34, 13, ti.color, 'center', '900', '#06331a');
     }
-    if (G.mod === 'brownout' && (G.state === 'play' || G.state === 'pause')) {
+    if ((G.mod === 'brownout' || G.boss === 'outage') && (G.state === 'play' || G.state === 'pause')) {
       const p = G.player, k = clamp((G.dayLen - G.timer) / 3, 0, 1) * 0.68, gr = g.createRadialGradient(p.x, p.y, 80, p.x, p.y, 330);
       gr.addColorStop(0, 'rgba(4,6,18,0)'); gr.addColorStop(1, `rgba(4,6,18,${k})`); g.fillStyle = gr; g.fillRect(0, 0, W, H);
     }
@@ -3410,7 +3512,7 @@ function frame(now) {
     g.setTransform(dpr * ts, 0, 0, dpr * ts, dpr * (cw / 2 - 800 * ts), dpr * (ch * 0.36)); drawBanner();
     g.setTransform(dpr, 0, 0, dpr, 0, 0); drawCoins(); drawBadgeToast(dt);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (['intro', 'summary', 'shop', 'pause'].includes(G.state)) { g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 0, cw, ch); }
+    if (['intro', 'summary', 'shop', 'pause', 'victory'].includes(G.state)) { g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 0, cw, ch); }
     if (G.state === 'gameover' || G.state === 'aftermath') { g.fillStyle = `rgba(10,8,6,${0.82 * clamp((G.as.t - G.as.end) / 1.0, 0, 1)})`; g.fillRect(0, 0, cw, ch); }
     menuLayer();
     if (G.state === 'airstrike') drawAirstrikeText();
@@ -3418,6 +3520,7 @@ function frame(now) {
     else if (G.state === 'summary') drawSummary();
     else if (G.state === 'shop') drawShop();
     else if (G.state === 'pause') drawPause();
+    else if (G.state === 'victory') drawVictory();
     else if (G.state === 'aftermath') drawNewspaper('aftermath');
     else if (G.state === 'gameover') { drawNewspaper('nuke'); if (G.as.t > G.as.end + 2) drawUpdateBanner(800, 100); }
   }

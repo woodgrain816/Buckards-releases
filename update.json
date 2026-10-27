@@ -1,10 +1,10 @@
 {
-  "version": "2.9.3",
+  "version": "3.0.0",
   "minNative": 1,
-  "notes": "New Stick sensitivity setting (Settings > Controls): a small push of the joystick can now give full speed. Default is more sensitive than before.",
-  "page": "buckards-2.9.3.html",
+  "notes": "Buckards 3.0 - built for hours: survive 25 days to BEAT BUCKARDS, then open a new store for a permanent bonus that stacks forever (or keep going endless). Boss days every 5 days (Gary, The Inspector, Bucko Stampede, Power Outage, THE BUCKO KING), five seasons, Price Checks and a Mystery Shopper.",
+  "page": "buckards-3.0.0.html",
   "apk": "Buckards.apk",
-  "sha256": "23a5ddbb445683dad33ab5f590afd6af9714dc48560daa60d539432427c47c83",
-  "size": 271802,
-  "date": "2026-10-25T20:10:25.590Z"
+  "sha256": "983017e58cabae55642c1aa25d6a0f698f541e80db0801e5fc854f88e0a85f29",
+  "size": 283322,
+  "date": "2026-10-27T05:43:51.979Z"
 }
