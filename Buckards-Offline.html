@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "3.0.0";
+const GR_VERSION = "3.1.0";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Buckards 3.0 - built for hours: survive 25 days to BEAT BUCKARDS, then open a new store for a permanent bonus that stacks forever (or keep going endless). Boss days every 5 days (Gary, The Inspector, Bucko Stampede, Power Outage, THE BUCKO KING), five seasons, Price Checks and a Mystery Shopper.";
+const GR_NOTES = "There are now secrets hidden in Buckards. Six of them. Good luck.";
 const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
@@ -606,6 +606,9 @@ const BADGES = [
   ['rank15', 'Executive Material', 'Reach the rank of Area VP'], ['light25', 'Speed Demon', 'Get 25 lightning tips (all time)'],
   ['beat', 'Bucko Champion', 'Beat Buckards: survive all 25 days'], ['franchise3', 'Franchise Empire', 'Open 3 new Buckards stores'],
   ['king', 'Long Live the King', 'Get the Bucko King out (day 25)'], ['inspect', 'Passed Inspection', 'Get through Inspector day with no mistakes'],
+  ['sec_logo', 'Rebate Hunter', 'Tapped the big BUCKARDS sign 11 times, fast'], ['sec_plane', 'Plane Spotter', 'Tapped a plane flying over the store'],
+  ['sec_idle', 'Patience of a Bucko', 'Left the title screen alone for 2 whole minutes'], ['sec_squirrel', 'Squirrel Whisperer', 'Stood perfectly still in BIRDSEED for 20 seconds'],
+  ['sec_night', 'Night Owl', 'Finished a day between midnight and 4 AM'], ['sec_1111', 'Eleven Eleven', 'Ended a day with 1111 in your wallet'],
   ['tipjar', 'Tip Jar Overflowing', 'Earn $1,000 in tips in one day'], ['lot', 'Curb Appeal', 'Own every LOT decoration']];
 const CAREER = { light: store.get('cLight', 0), dex: store.get('dex', []), xp: store.get('xp', 0), out: store.get('cOut', 0), caught: store.get('cCaught', 0), badges: store.get('badges', []) };
 const rankOf = xp => { let i = 0; while (i + 1 < RANKS.length && xp >= RANKS[i + 1][0]) i++; return i; };
@@ -794,6 +797,22 @@ const SHOP = [];
     ['statue', 'Golden Bucko Statue', 'A monument to the greatest Bucko.', 600], ['tower', 'Water Tower', 'BUCKARDS, written big for the whole town.', 750],
     ['blimp', 'Buckards Blimp', 'Drifts across the sky, forever.', 1000]]);
 }
+{
+  const add = (cat, list, fn) => list.forEach(a => SHOP.push(Object.assign({ cat, id: cat + ':' + a[0], raw: a[0], name: a[1], desc: a[2], price: 99999, secret: true }, fn(a))));
+  add('title', [['rebate', 'Rebate Royalty', 'SECRET. You know what you did.', '#7dff7d'], ['spotter', 'Plane Spotter', 'SECRET. Eyes on the sky.', '#9fe0ff'],
+    ['patient', 'Patience of a Bucko', 'SECRET. Good things come to those who wait.', '#cfd6cc'], ['nightowl', 'Night Owl', 'SECRET. Go to bed.', '#c8a0ff']], a => ({ color: a[3] }));
+  add('pet', [['goldsquirrel', 'Golden Squirrel', 'SECRET. It only comes out for the very patient.', 'squirrel', '#e8c547', '*golden chitter*']], a => ({ kind: a[3], color: a[4], line: a[5] }));
+  add('hat', [['rebatecrown', 'Rebate Crown', 'SECRET. Eleven eleven.', 'crown', '#3fdc6a']], a => ({ hat: a[3], hatCol: a[4] }));
+}
+const SECRET_REWARD = { sec_logo: 'title:rebate', sec_plane: 'title:spotter', sec_idle: 'title:patient', sec_night: 'title:nightowl', sec_squirrel: 'pet:goldsquirrel', sec_1111: 'hat:rebatecrown' };
+function secret(id) {
+  if (CAREER.badges.includes(id)) return;
+  badge(id); bb(40); S.jackpot(); buzz([40, 30, 40, 30, 120]);
+  const it = SHOP.find(x => x.id === SECRET_REWARD[id]);
+  if (it && !META.own.includes(it.id)) { META.own.push(it.id); saveShop(); }
+  const b = BADGES.find(x => x[0] === id);
+  G.badgeToast = { name: 'SECRET FOUND: ' + b[1], desc: `+50 BB  ·  unlocked: ${it ? it.name : '???'} (in the Company Store)`, t: 0 };
+}
 const shopItem = id => SHOP.find(it => it.id === id);
 const FANCY_HATS = new Set(['cheese', 'cowboy', 'chef', 'top', 'prop', 'viking', 'party', 'fez', 'bucket', 'cone', 'crown', 'tricorn']);
 const HAIR_HATS = new Set(['party', 'fez', 'crown', 'cone', 'cheese']);
@@ -808,12 +827,12 @@ const upL = id => {                                   // effective level: later 
   let eff = 0; for (let t = 0; t < 3; t++) eff += clamp(raw - t * u[3], 0, u[3]) * [1, 0.6, 0.4][t]; return eff;
 };
 function saveShop() { store.set('own', META.own); store.set('eq', META.eq); store.set('boosts', META.boosts); store.set('armed', META.armed); store.set('bb', META.bb); }
-const owned = it => it.price === 0 || META.own.includes(it.id);
+const owned = it => (it.price === 0 && !it.secret) || META.own.includes(it.id);
 const ownedCount = () => META.own.length + UPGRADES.reduce((n, u) => n + Math.ceil(upRaw(u[0]) / u[3]), 0);   // every tier you start counts
 const shopaholic = () => Math.floor(ownedCount() / 3) * 0.01;          // +1% cash for every 3 things you own
 function dealId() {                                                    // one thing half off, the same all calendar day
   let seed = 0; for (const ch of 'deal' + new Date().toDateString()) seed = (seed * 31 + ch.charCodeAt(0)) % 2147483647;
-  const pool = SHOP.filter(it => it.price > 0); return pool[seed % pool.length].id;
+  const pool = SHOP.filter(it => it.price > 0 && !it.secret); return pool[seed % pool.length].id;
 }
 const priceOf = it => it.id === dealId() ? Math.ceil(it.price / 2) : it.price;
 function buyItem(it) {
@@ -1035,6 +1054,7 @@ const stickReach = () => joyR() * STICK[SET.stick ?? 1];
 function joyR() { return clamp(Math.min(cw, ch) * 0.13, 46, 70) * [0.8, 1, 1.25][SET.joySize]; }
 
 addEventListener('keydown', e => {
+  G.lastInput = performance.now();
   if (keys[e.code]) return; keys[e.code] = true;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   if (e.code === 'KeyM') toggleSound();
@@ -1096,7 +1116,7 @@ function primary() {                       // Space / Enter: the obvious next th
 }
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
-  mouse.x = ptX(e); mouse.y = ptY(e); mouse.down = true;
+  mouse.x = ptX(e); mouse.y = ptY(e); mouse.down = true; G.lastInput = performance.now();
   if (S.on) { S.ensure(); if (!isAir()) M.start(); }
   const px = ptX(e), py = ptY(e);
   for (let i = HITS.length - 1; i >= 0; i--) { const h = HITS[i]; if (px >= h.x1 && px <= h.x2 && py >= h.y1 && py <= h.y2) { h.fn(); return; } }
@@ -1217,6 +1237,10 @@ function update(dt) {
     p.walk += dt * 10; if (Math.abs(mx) > 0.1) p.dir = mx > 0 ? 1 : -1;
     G.dustT -= dt; if (G.dustT <= 0) { G.dustT = 0.14; trailPuff(p); }
   }
+  if (!mx && !my && inArea(p, AREAS.BIRDSEED) && !CAREER.badges.includes('sec_squirrel')) {
+    G.stillT = (G.stillT || 0) + dt;
+    if (G.stillT > 20) { secret('sec_squirrel'); confetti(p.x, p.y - 30, 40); pop(p.x, p.y - 90, 'A GOLDEN SQUIRREL! *chitter*', '#ffe14d', 24); }
+  } else G.stillT = 0;
   const last = p.trail[p.trail.length - 1];
   if (Math.hypot(p.x - last.x, p.y - last.y) > 4) { p.trail.push({ x: p.x, y: p.y }); if (p.trail.length > 700) p.trail.shift(); }
   G.whistleCD = Math.max(0, G.whistleCD - dt);
@@ -1501,6 +1525,8 @@ function endDay(closing) {
     bb(25); earn(1000); bossNote = `BOSS DAY SURVIVED: ${BOSSES[G.boss][0]}  ·  +$1,000 +25 BB`;
     if (G.boss === 'inspector' && !G.dayTickets) { earn(1500); bb(20); badge('inspect'); bossNote = 'PERFECT INSPECTION!  ·  +$2,500 +45 BB'; }
   }
+  if (new Date().getHours() < 4) secret('sec_night');
+  if (String(Math.round(G.cash)).includes('1111')) secret('sec_1111');
   if (!G.endless && G.day >= WIN_DAY) { G.won = true; G.vicFx = false; badge('beat'); bb(100); }
   G.summary = { bossNote, left: closing ? left.length : 0, bonus, ticket: rollTicket(), scratched: false, scratchT: 0 };
   G.state = 'summary';
@@ -2767,6 +2793,7 @@ function drawTitle(t) {
   g.fillStyle = '#075226'; g.fillRect(180, 110, 1240, 26);
   for (let x = 196; x < 1410; x += 48) { g.fillStyle = 'rgba(255,255,255,0.045)'; g.fillRect(x, 136, 22, 168); }
   logo(800, 205, 2.2);
+  hit(530, 150, 540, 110, () => { const now = performance.now(); G.logoTaps = (G.logoTaps || []).filter(t => now - t < 6000); G.logoTaps.push(now); if (G.logoTaps.length >= 11) secret('sec_logo'); });
   text('THE HOME IMPROVEMENT STORE FULL OF BUCKOS', 800, 280, 24, '#fff', 'center', '900', '#06331a');
   const win = x => {
     g.fillStyle = '#063a1b'; g.fillRect(x - 4, 336, 118, 98);
@@ -2820,6 +2847,9 @@ function drawTitle(t) {
   const ax = xl - 500 + cyc * (xr - xl + 1000) / 6, ay = 620 - (ax - 800) * 0.12, s = plane.startsWith('B') ? 0.6 : 0.75;
   g.save(); g.globalAlpha = 0.16; g.fillStyle = '#000'; g.translate(40, 90); drawJet(plane, ax, ay, -0.12, s, true); g.restore();
   drawJet(plane, ax, ay, -0.12, s);
+  hit(ax - 60, ay - 45, 120, 90, () => secret('sec_plane'));
+  // 3. leave the title screen completely alone for two minutes
+  if (performance.now() - (G.lastInput || 0) > 120000 && G.lastInput) secret('sec_idle');
   // the menu column: centred on x=800, over the drive lane
   g.fillStyle = 'rgba(8,22,14,0.85)'; rr(420, 522, 760, 150, 18); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 3; g.stroke();
   text('Get the Buckos OUT. Correctly.', 800, 562, 34, '#ffe14d', 'center', '900', '#06331a');
@@ -2888,7 +2918,7 @@ function drawCatalog() {
     fitText(label, x + 54.5, 198, 100, 15, on ? '#fff' : '#33503d', 'center', '900');
     hit(x, 178, 109, 40, () => { C.tab = id; C.page = 0; });
   });
-  const list = C.tab === 'upgrade' ? UPGRADES.map(u => ({ cat: 'upgrade', up: u })) : SHOP.filter(it => it.cat === C.tab);
+  const list = C.tab === 'upgrade' ? UPGRADES.map(u => ({ cat: 'upgrade', up: u })) : SHOP.filter(it => it.cat === C.tab && (!it.secret || owned(it)));
   const pages = Math.ceil(list.length / 12); C.page = clamp(C.page, 0, pages - 1);
   list.slice(C.page * 12, C.page * 12 + 12).forEach((it, i) => drawShopCard(it, 285 + (i % 4) * 260, 230 + Math.floor(i / 4) * 182));
   if (pages > 1) {
@@ -3009,8 +3039,9 @@ function drawBadges() {
     g.fillStyle = got ? '#fff8dc' : '#ecebe4'; rr(cx, cy, 300, 56, 10); g.fill(); g.strokeStyle = got ? '#d4af37' : '#cfcfc6'; g.lineWidth = 2; g.stroke();
     g.fillStyle = got ? '#d4af37' : '#b8b8b0'; g.beginPath(); g.arc(cx + 30, cy + 28, 18, 0, 7); g.fill();
     text(got ? '★' : '?', cx + 30, cy + 29, 18, got ? '#14306b' : '#fff', 'center', '900', null, FB);
-    fitText(name, cx + 58, cy + 20, 236, 15, got ? '#0a5a2a' : '#888', 'left', '900');
-    fitText(desc, cx + 58, cy + 40, 230, 13, got ? '#444' : '#999', 'left', '700', FB);
+    const hid = !got && id.startsWith('sec_');
+    fitText(hid ? '??? (secret)' : name, cx + 58, cy + 20, 236, 15, got ? '#0a5a2a' : '#888', 'left', '900');
+    fitText(hid ? 'A secret. Nobody is going to tell you.' : desc, cx + 58, cy + 40, 230, 13, got ? '#444' : '#999', 'left', '700', FB);
   });
   // the Buckodex: every first name, greyed until you've got that Bucko out
   text('BUCKODEX', 800, 568, 18, '#0a7a36');
@@ -3439,6 +3470,7 @@ function frame(now) {
   if (G.state === 'title') {
     g.fillStyle = '#3c3f43'; g.fillRect(0, 0, cw, ch);
     g.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy); drawTitle(G.clock += dt);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); drawBadgeToast(dt);
   } else {
     if (!staticLayer) buildStatic();
     updateCam(dt);

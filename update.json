@@ -1,10 +1,10 @@
 {
-  "version": "3.0.0",
+  "version": "3.1.0",
   "minNative": 1,
-  "notes": "Buckards 3.0 - built for hours: survive 25 days to BEAT BUCKARDS, then open a new store for a permanent bonus that stacks forever (or keep going endless). Boss days every 5 days (Gary, The Inspector, Bucko Stampede, Power Outage, THE BUCKO KING), five seasons, Price Checks and a Mystery Shopper.",
-  "page": "buckards-3.0.0.html",
+  "notes": "There are now secrets hidden in Buckards. Six of them. Good luck.",
+  "page": "buckards-3.1.0.html",
   "apk": "Buckards.apk",
-  "sha256": "983017e58cabae55642c1aa25d6a0f698f541e80db0801e5fc854f88e0a85f29",
-  "size": 283322,
-  "date": "2026-10-27T05:43:51.979Z"
+  "sha256": "621737a9fcb5512b6094477be7361234b54b15d6529868b676988003943b89a5",
+  "size": 286212,
+  "date": "2026-10-27T05:47:33.181Z"
 }
