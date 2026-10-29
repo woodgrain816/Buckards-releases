@@ -1,10 +1,10 @@
 {
-  "version": "3.1.1",
+  "version": "3.1.2",
   "minNative": 1,
-  "notes": "Behind-the-scenes fix so the backup websites never get stuck reloading. There are still six secrets hidden in Buckards.",
-  "page": "buckards-3.1.1.html",
+  "notes": "Crash guard: if something ever goes wrong mid-shift, the game keeps going instead of kicking you out. Settings now shows the last error so it can be fixed.",
+  "page": "buckards-3.1.2.html",
   "apk": "Buckards.apk",
-  "sha256": "e24e9b25448b2fe34f4232aa4503a55769a723266f46307749f8cd8fdf3030aa",
-  "size": 286689,
-  "date": "2026-10-27T06:19:37.311Z"
+  "sha256": "d76332e5d2ef40365e5f5a4b7789759f2ab58942a5a54ee0889b7a2275da1868",
+  "size": 287918,
+  "date": "2026-10-29T22:15:57.651Z"
 }

@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "3.1.1";
+const GR_VERSION = "3.1.2";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Behind-the-scenes fix so the backup websites never get stuck reloading. There are still six secrets hidden in Buckards.";
+const GR_NOTES = "Crash guard: if something ever goes wrong mid-shift, the game keeps going instead of kicking you out. Settings now shows the last error so it can be fixed.";
 const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
@@ -3266,6 +3266,8 @@ function drawSettings(close) {
   }, { size: armed ? 14 : 15, bg: '#8a1a1a', bg2: '#c0392b' });
   text('Save code = all your progress. Load it on another website or device.', Rx + 200, 692, 12, '#777', 'center', '700', null, FB);
   text('Buckards v' + (APP && APP.version ? APP.version() : GR_VERSION) + '  ·  minimap: tap its - to tuck it away', Rx + 200, 712, 12, '#777', 'center', '700', null, FB);
+  { const le = store.get('lastErr', null);
+    if (le && !(G.saveNote && G.clock - G.saveNote.t < 4)) fitText(`Last error (v${le.v}, day ${le.day}, ${le.state}): ${le.m}`, Rx + 200, 732, 400, 11, '#c0392b', 'center', '700', FB); }
   if (touchy()) text('Phone tip: drag anywhere to walk, double-tap to dash.', L + 200, 700, 13, '#555', 'center', '700', null, FB);
   button(650, 760, 300, 56, 'DONE', close, { size: 22 });
 }
@@ -3448,7 +3450,25 @@ function drawCoins() {
 /* ------------------------------------------------------------ frame */
 let last = performance.now(), lastState = 'title', fadeT = 0;
 const perf = { n: 0, sum: 0, t: 0 };
+/* crash guard: one bad frame must never freeze or end the game. The error is kept so Settings can show it. */
+function noteErr(e, where) {
+  const m = String((e && (e.message || e.reason && e.reason.message)) || e).slice(0, 140);
+  const line = ((e && e.stack) || '').split('\n')[1] || '';
+  try { store.set('lastErr', { m, at: line.trim().slice(0, 80), where, day: G.day, state: G.state, v: GR_VERSION, when: Date.now() }); } catch (x) {}
+}
+addEventListener('error', e => noteErr(e.error || e.message, 'window'));
+addEventListener('unhandledrejection', e => noteErr(e.reason, 'promise'));
+let errBurst = 0;
 function frame(now) {
+  try { frameInner(now); errBurst = 0; }
+  catch (e) {
+    noteErr(e, 'frame');
+    for (let i = 0; i < 30; i++) g.restore();
+    if (++errBurst > 120 && G.state === 'play') { errBurst = 0; G.state = 'pause'; }   // stuck in a loop of errors: stop on the break screen, not a frozen one
+    requestAnimationFrame(frame);
+  }
+}
+function frameInner(now) {
   const raw = (now - last) / 1000;
   if (gfxMode === 'auto' && !autoLow && G.state === 'play' && !document.hidden) {
     perf.n++; perf.sum += raw; perf.t += raw;
