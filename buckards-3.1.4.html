@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "3.0.0";
+const GR_VERSION = "3.1.4";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Buckards 3.0 - built for hours: survive 25 days to BEAT BUCKARDS, then open a new store for a permanent bonus that stacks forever (or keep going endless). Boss days every 5 days (Gary, The Inspector, Bucko Stampede, Power Outage, THE BUCKO KING), five seasons, Price Checks and a Mystery Shopper.";
+const GR_NOTES = "Fixed: picking Hard or Nightmare now starts a run on that difficulty (your saved run is still there to continue). Buckos who walk in right before closing no longer give you a strike, and tour buses stop arriving in the last minute.";
 const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
@@ -52,7 +52,7 @@ function resize() {
   // A tall touch screen (a tablet held upright, or one that won't rotate for us) gets the game drawn turned 90 degrees,
   // so it always plays sideways. cw/ch are the game's own (sideways) width and height either way.
   ROT = (MOBILE || matchMedia('(pointer:coarse)').matches) && innerHeight > innerWidth * 1.05;
-  cw = ROT ? innerHeight : innerWidth; ch = ROT ? innerWidth : innerHeight;
+  cw = Math.max(320, ROT ? innerHeight : innerWidth); ch = Math.max(180, ROT ? innerWidth : innerHeight);   // a minimised or 0-size window must not divide by zero
   cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
   cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
   cv.style.transformOrigin = '0 0'; cv.style.transform = ROT ? `translateX(${ch}px) rotate(90deg)` : '';
@@ -270,6 +270,7 @@ const M = {
     const a = S.ac; if (!a) return;
     const tense = G.state === 'play' && (G.timer < 20 || G.strikes >= MAX_STRIKES - 1);
     const bpm = tense ? 132 : 96, eighth = 60 / bpm / 2;
+    if (this.next < a.currentTime - 0.2) this.next = a.currentTime + 0.05;   // fell behind (a busy laptop): skip ahead, never pile up notes
     while (this.next < a.currentTime + 0.35) { this.play(this.step, this.next, eighth); this.next += eighth; this.step++; }
   },
   play(step, t, e) {
@@ -547,7 +548,7 @@ function startDay(resumed) {
   if (!G.quest) newQuest();
   { const kinds = ['spill', 'hotdog', 'bus', 'raccoon'].sort(() => Math.random() - 0.5);
     const n = G.day === 1 ? 1 : G.day < 4 ? 2 : 3;
-    for (let i = 0; i < n; i++) G.events.push({ kind: G.day === 1 ? 'spill' : kinds[i], at: c.time * (0.75 - i * 0.22) - rnd(0, 8) }); }
+    for (let i = 0; i < n; i++) { const k = G.day === 1 ? 'spill' : kinds[i]; let at = c.time * (0.75 - i * 0.22) - rnd(0, 8); if (k === 'bus') at = Math.max(at, Math.min(75, c.time * 0.6)); G.events.push({ kind: k, at }); } }
   if (G.mod === 'slippery') for (const at of [0.85, 0.55, 0.3]) G.events.push({ kind: 'spill', at: c.time * at });
   if (G.day >= 2) for (let i = 0; i < (G.day >= 8 ? 2 : 1); i++) G.events.push({ kind: 'price', at: c.time * rnd(0.25, 0.8) });
   if (G.day >= 3 && G.spawns.length) pick(G.spawns).mystery = true;
@@ -606,6 +607,9 @@ const BADGES = [
   ['rank15', 'Executive Material', 'Reach the rank of Area VP'], ['light25', 'Speed Demon', 'Get 25 lightning tips (all time)'],
   ['beat', 'Bucko Champion', 'Beat Buckards: survive all 25 days'], ['franchise3', 'Franchise Empire', 'Open 3 new Buckards stores'],
   ['king', 'Long Live the King', 'Get the Bucko King out (day 25)'], ['inspect', 'Passed Inspection', 'Get through Inspector day with no mistakes'],
+  ['sec_logo', 'Rebate Hunter', 'Tapped the big BUCKARDS sign 11 times, fast'], ['sec_plane', 'Plane Spotter', 'Tapped a plane flying over the store'],
+  ['sec_idle', 'Patience of a Bucko', 'Left the title screen alone for 2 whole minutes'], ['sec_squirrel', 'Squirrel Whisperer', 'Stood perfectly still in BIRDSEED for 20 seconds'],
+  ['sec_night', 'Night Owl', 'Finished a day between midnight and 4 AM'], ['sec_1111', 'Eleven Eleven', 'Ended a day with 1111 in your wallet'],
   ['tipjar', 'Tip Jar Overflowing', 'Earn $1,000 in tips in one day'], ['lot', 'Curb Appeal', 'Own every LOT decoration']];
 const CAREER = { light: store.get('cLight', 0), dex: store.get('dex', []), xp: store.get('xp', 0), out: store.get('cOut', 0), caught: store.get('cCaught', 0), badges: store.get('badges', []) };
 const rankOf = xp => { let i = 0; while (i + 1 < RANKS.length && xp >= RANKS[i + 1][0]) i++; return i; };
@@ -794,6 +798,22 @@ const SHOP = [];
     ['statue', 'Golden Bucko Statue', 'A monument to the greatest Bucko.', 600], ['tower', 'Water Tower', 'BUCKARDS, written big for the whole town.', 750],
     ['blimp', 'Buckards Blimp', 'Drifts across the sky, forever.', 1000]]);
 }
+{
+  const add = (cat, list, fn) => list.forEach(a => SHOP.push(Object.assign({ cat, id: cat + ':' + a[0], raw: a[0], name: a[1], desc: a[2], price: 99999, secret: true }, fn(a))));
+  add('title', [['rebate', 'Rebate Royalty', 'SECRET. You know what you did.', '#7dff7d'], ['spotter', 'Plane Spotter', 'SECRET. Eyes on the sky.', '#9fe0ff'],
+    ['patient', 'Patience of a Bucko', 'SECRET. Good things come to those who wait.', '#cfd6cc'], ['nightowl', 'Night Owl', 'SECRET. Go to bed.', '#c8a0ff']], a => ({ color: a[3] }));
+  add('pet', [['goldsquirrel', 'Golden Squirrel', 'SECRET. It only comes out for the very patient.', 'squirrel', '#e8c547', '*golden chitter*']], a => ({ kind: a[3], color: a[4], line: a[5] }));
+  add('hat', [['rebatecrown', 'Rebate Crown', 'SECRET. Eleven eleven.', 'crown', '#3fdc6a']], a => ({ hat: a[3], hatCol: a[4] }));
+}
+const SECRET_REWARD = { sec_logo: 'title:rebate', sec_plane: 'title:spotter', sec_idle: 'title:patient', sec_night: 'title:nightowl', sec_squirrel: 'pet:goldsquirrel', sec_1111: 'hat:rebatecrown' };
+function secret(id) {
+  if (CAREER.badges.includes(id)) return;
+  badge(id); bb(40); S.jackpot(); buzz([40, 30, 40, 30, 120]);
+  const it = SHOP.find(x => x.id === SECRET_REWARD[id]);
+  if (it && !META.own.includes(it.id)) { META.own.push(it.id); saveShop(); }
+  const b = BADGES.find(x => x[0] === id);
+  G.badgeToast = { name: 'SECRET FOUND: ' + b[1], desc: `+50 BB  ·  unlocked: ${it ? it.name : '???'} (in the Company Store)`, t: 0 };
+}
 const shopItem = id => SHOP.find(it => it.id === id);
 const FANCY_HATS = new Set(['cheese', 'cowboy', 'chef', 'top', 'prop', 'viking', 'party', 'fez', 'bucket', 'cone', 'crown', 'tricorn']);
 const HAIR_HATS = new Set(['party', 'fez', 'crown', 'cone', 'cheese']);
@@ -808,12 +828,12 @@ const upL = id => {                                   // effective level: later 
   let eff = 0; for (let t = 0; t < 3; t++) eff += clamp(raw - t * u[3], 0, u[3]) * [1, 0.6, 0.4][t]; return eff;
 };
 function saveShop() { store.set('own', META.own); store.set('eq', META.eq); store.set('boosts', META.boosts); store.set('armed', META.armed); store.set('bb', META.bb); }
-const owned = it => it.price === 0 || META.own.includes(it.id);
+const owned = it => (it.price === 0 && !it.secret) || META.own.includes(it.id);
 const ownedCount = () => META.own.length + UPGRADES.reduce((n, u) => n + Math.ceil(upRaw(u[0]) / u[3]), 0);   // every tier you start counts
 const shopaholic = () => Math.floor(ownedCount() / 3) * 0.01;          // +1% cash for every 3 things you own
 function dealId() {                                                    // one thing half off, the same all calendar day
   let seed = 0; for (const ch of 'deal' + new Date().toDateString()) seed = (seed * 31 + ch.charCodeAt(0)) % 2147483647;
-  const pool = SHOP.filter(it => it.price > 0); return pool[seed % pool.length].id;
+  const pool = SHOP.filter(it => it.price > 0 && !it.secret); return pool[seed % pool.length].id;
 }
 const priceOf = it => it.id === dealId() ? Math.ceil(it.price / 2) : it.price;
 function buyItem(it) {
@@ -1035,6 +1055,7 @@ const stickReach = () => joyR() * STICK[SET.stick ?? 1];
 function joyR() { return clamp(Math.min(cw, ch) * 0.13, 46, 70) * [0.8, 1, 1.25][SET.joySize]; }
 
 addEventListener('keydown', e => {
+  G.lastInput = performance.now();
   if (keys[e.code]) return; keys[e.code] = true;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   if (e.code === 'KeyM') toggleSound();
@@ -1086,7 +1107,7 @@ function spawnCoins(x, y, n) {           // world point -> flying to the wallet 
 }
 function reopen() { G.level = Math.min(G.level + 1, LADDER.length - 1); G.strikes = Math.min(MAX_STRIKES - 1, Math.floor((G.extra || 0) / 2)); G.extra = 0; G.tickets = 0; G.day++; startDay(); M.start(); }
 function primary() {                       // Space / Enter: the obvious next thing on each screen
-  if (G.state === 'title') { if (META.loginReward) META.loginReward = null; else if (G.showBadges || G.showUpgrades || G.showMissions || G.showSettings) G.showBadges = G.showUpgrades = G.showMissions = G.showSettings = false; else { const run = store.get('run', null); newGame(run && run.day ? run : undefined); } }
+  if (G.state === 'title') { if (META.loginReward) META.loginReward = null; else if (G.showBadges || G.showUpgrades || G.showMissions || G.showSettings) G.showBadges = G.showUpgrades = G.showMissions = G.showSettings = false; else { const run = store.get('run', null); newGame(run && run.day && (run.diff || 0) === (META.diff || 0) ? run : undefined); } }
   else if (G.state === 'intro') openDoors();
   else if (G.state === 'summary') G.state = G.won ? 'victory' : 'shop';
   else if (G.state === 'shop') { G.day++; startDay(); }
@@ -1096,7 +1117,7 @@ function primary() {                       // Space / Enter: the obvious next th
 }
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
-  mouse.x = ptX(e); mouse.y = ptY(e); mouse.down = true;
+  mouse.x = ptX(e); mouse.y = ptY(e); mouse.down = true; G.lastInput = performance.now();
   if (S.on) { S.ensure(); if (!isAir()) M.start(); }
   const px = ptX(e), py = ptY(e);
   for (let i = HITS.length - 1; i >= 0; i--) { const h = HITS[i]; if (px >= h.x1 && px <= h.x2 && py >= h.y1 && py <= h.y2) { h.fn(); return; } }
@@ -1217,6 +1238,10 @@ function update(dt) {
     p.walk += dt * 10; if (Math.abs(mx) > 0.1) p.dir = mx > 0 ? 1 : -1;
     G.dustT -= dt; if (G.dustT <= 0) { G.dustT = 0.14; trailPuff(p); }
   }
+  if (!mx && !my && inArea(p, AREAS.BIRDSEED) && !CAREER.badges.includes('sec_squirrel')) {
+    G.stillT = (G.stillT || 0) + dt;
+    if (G.stillT > 20) { secret('sec_squirrel'); confetti(p.x, p.y - 30, 40); pop(p.x, p.y - 90, 'A GOLDEN SQUIRREL! *chitter*', '#ffe14d', 24); }
+  } else G.stillT = 0;
   const last = p.trail[p.trail.length - 1];
   if (Math.hypot(p.x - last.x, p.y - last.y) > 4) { p.trail.push({ x: p.x, y: p.y }); if (p.trail.length > 700) p.trail.shift(); }
   G.whistleCD = Math.max(0, G.whistleCD - dt);
@@ -1485,6 +1510,8 @@ function scratch() {
   mission('scratch');
 }
 function endDay(closing) {
+  const late = G.buckos.filter(b => b.state !== 'leaving' && !b.king && (b.inT ?? 999) - G.timer < 45);   // walked in right before closing: no time to shop, not your fault
+  if (closing && late.length) { G.buckos = G.buckos.filter(b => !late.includes(b)); G.player.chain = G.player.chain.filter(b => !late.includes(b)); }
   const left = G.buckos.filter(b => b.state !== 'leaving');
   S.buzzer();
   if (closing && left.length) {
@@ -1501,6 +1528,8 @@ function endDay(closing) {
     bb(25); earn(1000); bossNote = `BOSS DAY SURVIVED: ${BOSSES[G.boss][0]}  ·  +$1,000 +25 BB`;
     if (G.boss === 'inspector' && !G.dayTickets) { earn(1500); bb(20); badge('inspect'); bossNote = 'PERFECT INSPECTION!  ·  +$2,500 +45 BB'; }
   }
+  if (new Date().getHours() < 4) secret('sec_night');
+  if (String(Math.round(G.cash)).includes('1111')) secret('sec_1111');
   if (!G.endless && G.day >= WIN_DAY) { G.won = true; G.vicFx = false; badge('beat'); bb(100); }
   G.summary = { bossNote, left: closing ? left.length : 0, bonus, ticket: rollTicket(), scratched: false, scratchT: 0 };
   G.state = 'summary';
@@ -2767,6 +2796,7 @@ function drawTitle(t) {
   g.fillStyle = '#075226'; g.fillRect(180, 110, 1240, 26);
   for (let x = 196; x < 1410; x += 48) { g.fillStyle = 'rgba(255,255,255,0.045)'; g.fillRect(x, 136, 22, 168); }
   logo(800, 205, 2.2);
+  hit(530, 150, 540, 110, () => { const now = performance.now(); G.logoTaps = (G.logoTaps || []).filter(t => now - t < 6000); G.logoTaps.push(now); if (G.logoTaps.length >= 11) secret('sec_logo'); });
   text('THE HOME IMPROVEMENT STORE FULL OF BUCKOS', 800, 280, 24, '#fff', 'center', '900', '#06331a');
   const win = x => {
     g.fillStyle = '#063a1b'; g.fillRect(x - 4, 336, 118, 98);
@@ -2820,6 +2850,9 @@ function drawTitle(t) {
   const ax = xl - 500 + cyc * (xr - xl + 1000) / 6, ay = 620 - (ax - 800) * 0.12, s = plane.startsWith('B') ? 0.6 : 0.75;
   g.save(); g.globalAlpha = 0.16; g.fillStyle = '#000'; g.translate(40, 90); drawJet(plane, ax, ay, -0.12, s, true); g.restore();
   drawJet(plane, ax, ay, -0.12, s);
+  hit(ax - 60, ay - 45, 120, 90, () => secret('sec_plane'));
+  // 3. leave the title screen completely alone for two minutes
+  if (performance.now() - (G.lastInput || 0) > 120000 && G.lastInput) secret('sec_idle');
   // the menu column: centred on x=800, over the drive lane
   g.fillStyle = 'rgba(8,22,14,0.85)'; rr(420, 522, 760, 150, 18); g.fill(); g.strokeStyle = '#ffe14d'; g.lineWidth = 3; g.stroke();
   text('Get the Buckos OUT. Correctly.', 800, 562, 34, '#ffe14d', 'center', '900', '#06331a');
@@ -2832,7 +2865,12 @@ function drawTitle(t) {
     if (!lock) hit(x, 624, 168, 34, () => { META.diff = i; store.set('diff', i); });
   });
   const run = store.get('run', null);
-  if (run && run.day) {                              // a saved run: carry on, or (two taps) start over
+  const DN = ['NORMAL', 'HARD', 'NIGHTMARE'];
+  if (run && run.day && (run.diff || 0) !== (META.diff || 0)) {   // picked a different difficulty than the saved run: that means a new run
+    button(620, 690, 360, 54, `START ${DN[META.diff || 0]} RUN`, () => newGame(), { size: 26, bg: ['#0a7a36', '#c26a00', '#8a1a1a'][META.diff || 0], bg2: ['#1fae4b', '#e08a10', '#c0392b'][META.diff || 0] });
+    button(620, 750, 360, 30, `or CONTINUE ${DN[run.diff || 0]} · DAY ${run.day}`, () => { META.diff = run.diff || 0; store.set('diff', META.diff); newGame(run); },
+      { size: 13, bg: '#33503d', bg2: '#4a6f55' });
+  } else if (run && run.day) {                              // a saved run: carry on, or (two taps) start over
     button(620, 690, 360, 54, `CONTINUE · DAY ${run.day}`, () => newGame(run), { size: 28 });
     const sure = G.newRunArm && G.clock - G.newRunArm < 3;
     button(620, 750, 360, 30, sure ? 'TAP AGAIN TO START OVER AT DAY 1' : 'NEW RUN (start over)', () => { if (sure) newGame(); else G.newRunArm = G.clock; },
@@ -2888,7 +2926,7 @@ function drawCatalog() {
     fitText(label, x + 54.5, 198, 100, 15, on ? '#fff' : '#33503d', 'center', '900');
     hit(x, 178, 109, 40, () => { C.tab = id; C.page = 0; });
   });
-  const list = C.tab === 'upgrade' ? UPGRADES.map(u => ({ cat: 'upgrade', up: u })) : SHOP.filter(it => it.cat === C.tab);
+  const list = C.tab === 'upgrade' ? UPGRADES.map(u => ({ cat: 'upgrade', up: u })) : SHOP.filter(it => it.cat === C.tab && (!it.secret || owned(it)));
   const pages = Math.ceil(list.length / 12); C.page = clamp(C.page, 0, pages - 1);
   list.slice(C.page * 12, C.page * 12 + 12).forEach((it, i) => drawShopCard(it, 285 + (i % 4) * 260, 230 + Math.floor(i / 4) * 182));
   if (pages > 1) {
@@ -3009,8 +3047,9 @@ function drawBadges() {
     g.fillStyle = got ? '#fff8dc' : '#ecebe4'; rr(cx, cy, 300, 56, 10); g.fill(); g.strokeStyle = got ? '#d4af37' : '#cfcfc6'; g.lineWidth = 2; g.stroke();
     g.fillStyle = got ? '#d4af37' : '#b8b8b0'; g.beginPath(); g.arc(cx + 30, cy + 28, 18, 0, 7); g.fill();
     text(got ? '★' : '?', cx + 30, cy + 29, 18, got ? '#14306b' : '#fff', 'center', '900', null, FB);
-    fitText(name, cx + 58, cy + 20, 236, 15, got ? '#0a5a2a' : '#888', 'left', '900');
-    fitText(desc, cx + 58, cy + 40, 230, 13, got ? '#444' : '#999', 'left', '700', FB);
+    const hid = !got && id.startsWith('sec_');
+    fitText(hid ? '??? (secret)' : name, cx + 58, cy + 20, 236, 15, got ? '#0a5a2a' : '#888', 'left', '900');
+    fitText(hid ? 'A secret. Nobody is going to tell you.' : desc, cx + 58, cy + 40, 230, 13, got ? '#444' : '#999', 'left', '700', FB);
   });
   // the Buckodex: every first name, greyed until you've got that Bucko out
   text('BUCKODEX', 800, 568, 18, '#0a7a36');
@@ -3235,6 +3274,8 @@ function drawSettings(close) {
   }, { size: armed ? 14 : 15, bg: '#8a1a1a', bg2: '#c0392b' });
   text('Save code = all your progress. Load it on another website or device.', Rx + 200, 692, 12, '#777', 'center', '700', null, FB);
   text('Buckards v' + (APP && APP.version ? APP.version() : GR_VERSION) + '  ·  minimap: tap its - to tuck it away', Rx + 200, 712, 12, '#777', 'center', '700', null, FB);
+  { const le = store.get('lastErr', null);
+    if (le && !(G.saveNote && G.clock - G.saveNote.t < 4)) fitText(`Last error (v${le.v}, day ${le.day}, ${le.state}): ${le.m}`, Rx + 200, 732, 400, 11, '#c0392b', 'center', '700', FB); }
   if (touchy()) text('Phone tip: drag anywhere to walk, double-tap to dash.', L + 200, 700, 13, '#555', 'center', '700', null, FB);
   button(650, 760, 300, 56, 'DONE', close, { size: 22 });
 }
@@ -3417,7 +3458,25 @@ function drawCoins() {
 /* ------------------------------------------------------------ frame */
 let last = performance.now(), lastState = 'title', fadeT = 0;
 const perf = { n: 0, sum: 0, t: 0 };
+/* crash guard: one bad frame must never freeze or end the game. The error is kept so Settings can show it. */
+function noteErr(e, where) {
+  const m = String((e && (e.message || e.reason && e.reason.message)) || e).slice(0, 140);
+  const line = ((e && e.stack) || '').split('\n')[1] || '';
+  try { store.set('lastErr', { m, at: line.trim().slice(0, 80), where, day: G.day, state: G.state, v: GR_VERSION, when: Date.now() }); } catch (x) {}
+}
+addEventListener('error', e => noteErr(e.error || e.message, 'window'));
+addEventListener('unhandledrejection', e => noteErr(e.reason, 'promise'));
+let errBurst = 0;
 function frame(now) {
+  try { frameInner(now); errBurst = 0; }
+  catch (e) {
+    noteErr(e, 'frame');
+    for (let i = 0; i < 30; i++) g.restore();
+    if (++errBurst > 120 && G.state === 'play') { errBurst = 0; G.state = 'pause'; }   // stuck in a loop of errors: stop on the break screen, not a frozen one
+    requestAnimationFrame(frame);
+  }
+}
+function frameInner(now) {
   const raw = (now - last) / 1000;
   if (gfxMode === 'auto' && !autoLow && G.state === 'play' && !document.hidden) {
     perf.n++; perf.sum += raw; perf.t += raw;
@@ -3439,6 +3498,7 @@ function frame(now) {
   if (G.state === 'title') {
     g.fillStyle = '#3c3f43'; g.fillRect(0, 0, cw, ch);
     g.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy); drawTitle(G.clock += dt);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); drawBadgeToast(dt);
   } else {
     if (!staticLayer) buildStatic();
     updateCam(dt);
@@ -3543,7 +3603,14 @@ function checkUpdate() {
   if (!/^(file|https?):$/.test(location.protocol) || /localhost|127\.0\.0\.1/.test(location.host)) return;
   fetch(UPDATE_URL + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(m => {
     if (!m || !newer(m.version, GR_VERSION)) return;
-    if (ON_WEB && G.state === 'title') { freshLoad(m.version); return; }        // nothing to lose on the title screen: just update
+    if (ON_WEB) {                     // only reload if THIS site already has it (mirrors like Netlify update less often)
+      fetch(location.pathname + '?check=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => {
+        const v = (t.match(/GR_VERSION = "([^"]+)"/) || [])[1];
+        if (!v || !newer(v, GR_VERSION)) return;
+        if (G.state === 'title') freshLoad(v); else G.update = { state: 'web', version: v, notes: m.notes };   // nothing to lose on the title screen: just update
+      }).catch(() => {});
+      return;
+    }
     G.update = { state: ON_WEB ? 'web' : OFFLINE_FILE ? 'file' : 'pc', version: m.version, notes: m.notes };
   }).catch(() => {});
 }

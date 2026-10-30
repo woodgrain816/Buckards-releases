@@ -1,10 +1,10 @@
 {
-  "version": "3.1.3",
+  "version": "3.1.4",
   "minNative": 1,
-  "notes": "Stability update: the game can no longer freeze or kick you out mid-shift, long sessions stay smooth, and Settings shows the last error if anything ever goes wrong.",
-  "page": "buckards-3.1.3.html",
+  "notes": "Fixed: picking Hard or Nightmare now starts a run on that difficulty (your saved run is still there to continue). Buckos who walk in right before closing no longer give you a strike, and tour buses stop arriving in the last minute.",
+  "page": "buckards-3.1.4.html",
   "apk": "Buckards.apk",
-  "sha256": "44c5f4d19694e689ce0cdfc187321bcf8ee5e40c081b2c6be6a8136369eb6093",
-  "size": 288068,
-  "date": "2026-10-29T22:21:38.671Z"
+  "sha256": "ed8f6fe91cc9a08203c8cd5ee5ba4e327b2d556a480f5cf5cbdafca55b5729ec",
+  "size": 289295,
+  "date": "2026-10-30T01:45:14.883Z"
 }
