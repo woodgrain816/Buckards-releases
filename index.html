@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "3.1.4";
+const GR_VERSION = "3.1.5";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Fixed: picking Hard or Nightmare now starts a run on that difficulty (your saved run is still there to continue). Buckos who walk in right before closing no longer give you a strike, and tour buses stop arriving in the last minute.";
+const GR_NOTES = "Save codes fixed for school Chromebooks: they now open in the game's own box (no more blocked popups), are 60% shorter, and loading tells you exactly what went wrong.";
 const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
@@ -1055,6 +1055,7 @@ const stickReach = () => joyR() * STICK[SET.stick ?? 1];
 function joyR() { return clamp(Math.min(cw, ch) * 0.13, 46, 70) * [0.8, 1, 1.25][SET.joySize]; }
 
 addEventListener('keydown', e => {
+  if (e.target && /^(TEXTAREA|INPUT)$/.test(e.target.tagName)) return;   // typing in the save-code box
   G.lastInput = performance.now();
   if (keys[e.code]) return; keys[e.code] = true;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -3279,24 +3280,66 @@ function drawSettings(close) {
   if (touchy()) text('Phone tip: drag anywhere to walk, double-tap to dash.', L + 200, 700, 13, '#555', 'center', '700', null, FB);
   button(650, 760, 300, 56, 'DONE', close, { size: 22 });
 }
-function exportSave() {
+/* save codes: shown in the game's own box (school Chromebooks block or cut off the browser's prompt popups).
+   BUCKARDS2 = deflate-compressed (much shorter); BUCKARDS1 codes from older versions still load. */
+const unzip = (bytes, how) => new Response(new Blob([bytes]).stream().pipeThrough(how)).arrayBuffer().then(x => new Uint8Array(x));
+async function packSave() {
   const data = {}; try { for (const k of Object.keys(localStorage)) if (k.startsWith('grenards_')) data[k] = localStorage.getItem(k); } catch (e) {}
-  const bytes = new TextEncoder().encode(JSON.stringify(data)); let bin = ''; for (const x of bytes) bin += String.fromCharCode(x);
-  const code = 'BUCKARDS1:' + btoa(bin);
-  const done = () => { G.saveNote = { text: 'Save code copied! Paste it into LOAD SAVE CODE on the other one.', t: G.clock }; };
-  try { navigator.clipboard.writeText(code).then(done, () => { prompt('Copy your save code:', code); done(); }); } catch (e) { prompt('Copy your save code:', code); done(); }
+  let bytes = new TextEncoder().encode(JSON.stringify(data)), tag = 'BUCKARDS1:';
+  if (window.CompressionStream) try { bytes = await unzip(bytes, new CompressionStream('deflate')); tag = 'BUCKARDS2:'; } catch (e) {}
+  let bin = ''; for (const x of bytes) bin += String.fromCharCode(x);
+  return tag + btoa(bin);
 }
-function importSave() {
-  const code = (prompt('Paste your Buckards save code here.\nThis REPLACES the progress on this device.') || '').trim();
-  if (!code) return;
-  try {
-    if (!code.startsWith('BUCKARDS1:')) throw 0;
-    const data = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(code.slice(10)), ch => ch.charCodeAt(0))));   // (not escape(): that name is the runaway-Bucko function)
-    for (const k of Object.keys(localStorage)) if (k.startsWith('grenards_')) localStorage.removeItem(k);
-    for (const [k, v] of Object.entries(data)) if (k.startsWith('grenards_')) localStorage.setItem(k, v);
-    location.reload();
-  } catch (e) { alert("That doesn't look like a Buckards save code. Copy the whole thing and try again."); }
+async function unpackSave(raw) {
+  const t = String(raw || '').replace(/\s+/g, ''), i = t.search(/BUCKARDS[12]:/i);    // spaces/line breaks from chat apps are fine
+  if (i < 0) throw new Error('nohead');
+  const ver = t[i + 8], b64 = t.slice(i + 10).replace(/-/g, '+').replace(/_/g, '/').replace(/[^A-Za-z0-9+/=]/g, '');
+  let bytes, data;
+  try { bytes = Uint8Array.from(atob(b64), ch => ch.charCodeAt(0)); if (ver === '2') bytes = await unzip(bytes, new DecompressionStream('deflate')); data = JSON.parse(new TextDecoder().decode(bytes)); }
+  catch (e) { throw new Error('cut'); }     // (not escape(): that name is the runaway-Bucko function)
+  if (!data || typeof data !== 'object' || !Object.keys(data).some(k => k.startsWith('grenards_'))) throw new Error('cut');
+  return data;
 }
+function saveBox(mode) {
+  const old = document.getElementById('saveBox'); if (old) old.remove();
+  const d = document.createElement('div'); d.id = 'saveBox';
+  d.style.cssText = 'position:fixed;inset:0;z-index:50;background:rgba(4,18,10,0.82);display:flex;align-items:center;justify-content:center;padding:16px;font:700 15px "Segoe UI",Arial,sans-serif;touch-action:auto';
+  const btn = 'border:0;border-radius:10px;padding:12px 18px;font:900 15px "Segoe UI",Arial,sans-serif;color:#fff;cursor:pointer;margin:6px';
+  d.innerHTML = `<div style="background:#fbf7ea;border:4px solid #ffe14d;border-radius:16px;padding:18px 20px;max-width:560px;width:100%;color:#1c2a20;text-align:center">
+    <div style="font:900 24px 'Arial Black',Arial,sans-serif;color:#0a7a36;margin-bottom:6px">${mode === 'copy' ? 'YOUR SAVE CODE' : 'LOAD A SAVE CODE'}</div>
+    <div id="sbHelp" style="color:#555;margin-bottom:10px">${mode === 'copy' ? 'Making your code...' : 'Paste your whole save code below. This REPLACES the progress on this device.'}</div>
+    <textarea id="sbText" spellcheck="false" style="width:100%;box-sizing:border-box;height:130px;font:12px Consolas,monospace;border:2px solid #9fb7a6;border-radius:8px;padding:8px;resize:none;word-break:break-all" ${mode === 'copy' ? 'readonly' : 'placeholder="BUCKARDS2:..."'}></textarea>
+    <div id="sbNote" style="min-height:20px;margin:8px 0 2px;color:#c0392b"></div>
+    <button id="sbGo" style="${btn};background:#1fae4b">${mode === 'copy' ? 'COPY' : 'LOAD IT'}</button>
+    <button id="sbX" style="${btn};background:#8a1a1a">CLOSE</button></div>`;
+  document.body.appendChild(d);
+  const ta = d.querySelector('#sbText'), note = d.querySelector('#sbNote'), say = (m, ok) => { note.textContent = m; note.style.color = ok ? '#0a7a36' : '#c0392b'; };
+  d.querySelector('#sbX').onclick = () => d.remove();
+  if (mode === 'copy') {
+    packSave().then(code => {
+      ta.value = code; d.querySelector('#sbHelp').textContent = `${code.length.toLocaleString()} characters. Copy ALL of it, then LOAD SAVE CODE on the other website or device.`;
+      ta.focus(); ta.select();
+    });
+    d.querySelector('#sbGo').onclick = () => {
+      ta.focus(); ta.select(); let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      const done = () => { say('Copied! Now paste it into LOAD SAVE CODE on the other one.', true); G.saveNote = { text: 'Save code copied!', t: G.clock }; };
+      if (navigator.clipboard) navigator.clipboard.writeText(ta.value).then(done, () => ok ? done() : say('Your Chromebook blocked copying. The code is selected: press Ctrl+C.'));
+      else ok ? done() : say('The code is selected: press Ctrl+C to copy it.');
+    };
+  } else {
+    setTimeout(() => ta.focus(), 50);
+    d.querySelector('#sbGo').onclick = () => unpackSave(ta.value).then(data => {
+      for (const k of Object.keys(localStorage)) if (k.startsWith('grenards_')) localStorage.removeItem(k);
+      for (const [k, v] of Object.entries(data)) if (k.startsWith('grenards_')) localStorage.setItem(k, v);
+      say('Loaded! Restarting...', true); setTimeout(() => location.reload(), 600);
+    }, e => say(e.message === 'nohead'
+      ? 'That is not a Buckards save code. It starts with BUCKARDS1: or BUCKARDS2:'
+      : `That code is cut off or changed (${ta.value.replace(/\s+/g, '').length.toLocaleString()} characters pasted). Copy the WHOLE code again - use the COPY button, or Ctrl+A then Ctrl+C.`));
+  }
+}
+function exportSave() { saveBox('copy'); }
+function importSave() { saveBox('load'); }
 function drawPause() {
   if (G.showSettings) { drawSettings(() => { G.showSettings = false; }); return; }
   paper(560, 250, 480, 582);

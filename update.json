@@ -1,10 +1,10 @@
 {
-  "version": "3.1.4",
+  "version": "3.1.5",
   "minNative": 1,
-  "notes": "Fixed: picking Hard or Nightmare now starts a run on that difficulty (your saved run is still there to continue). Buckos who walk in right before closing no longer give you a strike, and tour buses stop arriving in the last minute.",
-  "page": "buckards-3.1.4.html",
+  "notes": "Save codes fixed for school Chromebooks: they now open in the game's own box (no more blocked popups), are 60% shorter, and loading tells you exactly what went wrong.",
+  "page": "buckards-3.1.5.html",
   "apk": "Buckards.apk",
-  "sha256": "ed8f6fe91cc9a08203c8cd5ee5ba4e327b2d556a480f5cf5cbdafca55b5729ec",
-  "size": 289295,
-  "date": "2026-10-30T01:45:14.883Z"
+  "sha256": "90f4e9ac770d15b4e6a8570bcf7e2494e0f0981cfdf6c3563a11efb4fd0b58ad",
+  "size": 293097,
+  "date": "2026-10-30T04:03:46.215Z"
 }
