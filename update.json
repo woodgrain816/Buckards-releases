@@ -1,10 +1,10 @@
 {
-  "version": "3.1.5",
+  "version": "3.1.6",
   "minNative": 1,
-  "notes": "Save codes fixed for school Chromebooks: they now open in the game's own box (no more blocked popups), are 60% shorter, and loading tells you exactly what went wrong.",
-  "page": "buckards-3.1.5.html",
+  "notes": "Bus tours and church groups walk in properly now (no more ungrabbable Buckos stuck at the door). Lumber guys only join a lumber line, and regular Buckos never pull a lumber guy into theirs.",
+  "page": "buckards-3.1.6.html",
   "apk": "Buckards.apk",
-  "sha256": "90f4e9ac770d15b4e6a8570bcf7e2494e0f0981cfdf6c3563a11efb4fd0b58ad",
-  "size": 293097,
-  "date": "2026-10-30T04:03:46.215Z"
+  "sha256": "53b798ac9fa98f50b4a116ac16a0fb7d2f7fb8496eb0300b6c13d4f3e29ea301",
+  "size": 293703,
+  "date": "2026-10-31T18:21:32.837Z"
 }

@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "3.1.5";
+const GR_VERSION = "3.1.6";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Save codes fixed for school Chromebooks: they now open in the game's own box (no more blocked popups), are 60% shorter, and loading tells you exactly what went wrong.";
+const GR_NOTES = "Bus tours and church groups walk in properly now (no more ungrabbable Buckos stuck at the door). Lumber guys only join a lumber line, and regular Buckos never pull a lumber guy into theirs.";
 const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
@@ -429,7 +429,7 @@ function newBucko(type, x, y, entering) {
   const golden = type !== 'contractor' && Math.random() < (0.05 + 0.02 * upL('golden')) * (G.boost === 'lucky' ? 3 : 1), look = makeLook(type);
   if (golden) Object.assign(look, { shirt: 'flannel', shirtCol: '#c9970f', hat: 'blaze', hatCol: '#e8b923' });
   return { inT: G.timer, golden, type, x, y, surname: pick(SURNAMES), voice: rnd(170, 330), name: nameBag.pop(), item: it[0], price: it[1], area: it[2], kind: it[3], look,
-    state: entering ? 'entering' : 'shop', target: entering ? { x: 190, y: 640 } : null, pause: rnd(0, 1.5),
+    state: entering ? 'entering' : 'shop', target: entering ? { x: rnd(160, 340), y: rnd(570, 680) } : null, enterT: 0, pause: rnd(0, 1.5),
     stuck: 0, cool: 0, has: false, hunt: 0, need: rnd(1.6, 3.4), scanned: false, scanT: 0, walk: rnd(0, 6), out: 0,
     dir: 1, vx: 0, vy: 0, seed: rnd(0, 10), say: null, chat: rnd(4, 12), lure: 0, nag: 0, patience: 0, patMax: 1,
     sneaky: type !== 'contractor' && Math.random() < Math.min(0.5, (0.02 + 0.025 * G.day) * dv('sneak')) };
@@ -1306,7 +1306,7 @@ function update(dt) {
     if (b.state === 'chain') continue;
     b.cool -= dt; b.lure -= dt;
     const T = TYPES[b.type];
-    if (b.state === 'entering') { if (stepToward(b, b.target, 90, dt) < 6) { b.state = 'shop'; b.target = null; } b.walk += dt * 7; continue; }
+    if (b.state === 'entering') { b.enterT = (b.enterT || 0) + dt; if (stepToward(b, b.target, 90, dt) < 20 || (b.enterT > 3.5 && b.y < 760)) { b.state = 'shop'; b.target = null; b.cool = Math.max(b.cool, 2); } b.walk += dt * 7; continue; }   // each walks in to his own spot; a crowd can never jam the door
     // waiting customers run out of patience, and then they run
     if (b.state === 'wait' && b.type !== 'contractor' && !b.scanned) {
       if (!(G.hotdogT > 0)) b.patience -= dt;
@@ -1340,7 +1340,9 @@ function update(dt) {
     if (b.state === 'leaving') continue;
     if (b.cool <= 0 && dist(b, p) < 40) {
       const wasRunner = b.state === 'runner';
-      if (p.chain.length < maxLine()) {
+      const mixed = p.chain.length && (p.chain[0].type === 'contractor') !== (b.type === 'contractor');   // lumber guys only line up with lumber guys
+      if (mixed && !wasRunner) { if (G.clock - (G.mixT || 0) > 2.5) { G.mixT = G.clock; pop(b.x, b.y - 52, b.type === 'contractor' ? 'LUMBER LINE ONLY' : 'NOT A LUMBER GUY', '#ffcc00', 16); } }
+      else if (!mixed && p.chain.length < maxLine()) {
         b.state = 'chain'; b.lure = 0; p.chain.push(b); S.join(); buzz(15);
         if (wasRunner) { say(b, 'caught', 1.8); pop(b.x, b.y - 52, 'CAUGHT!', '#7dff7d', 22); questTick('catch', 1); career('caught', 1); addXP(15); mission('catch'); } else say(b, 'join', 1.6);
       } else if (wasRunner) { b.state = 'wait'; b.patience = 15; b.cool = 1.5; say(b, 'caught', 1.8); pop(b.x, b.y - 52, 'STOPPED', '#7dff7d', 20); questTick('catch', 1); }
@@ -1511,7 +1513,7 @@ function scratch() {
   mission('scratch');
 }
 function endDay(closing) {
-  const late = G.buckos.filter(b => b.state !== 'leaving' && !b.king && (b.inT ?? 999) - G.timer < 45);   // walked in right before closing: no time to shop, not your fault
+  const late = G.buckos.filter(b => b.state !== 'leaving' && !b.king && (b.state === 'entering' || (b.inT ?? 999) - G.timer < 45));   // walked in right before closing: no time to shop, not your fault
   if (closing && late.length) { G.buckos = G.buckos.filter(b => !late.includes(b)); G.player.chain = G.player.chain.filter(b => !late.includes(b)); }
   const left = G.buckos.filter(b => b.state !== 'leaving');
   S.buzzer();

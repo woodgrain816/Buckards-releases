@@ -28,9 +28,9 @@
    The Android build and the PC launcher read GR_VERSION / GR_MIN_NATIVE /
    GR_NOTES out of this file. */
 
-const GR_VERSION = "3.1.1";
+const GR_VERSION = "3.1.6";
 const GR_MIN_NATIVE = 1;
-const GR_NOTES = "Behind-the-scenes fix so the backup websites never get stuck reloading. There are still six secrets hidden in Buckards.";
+const GR_NOTES = "Bus tours and church groups walk in properly now (no more ungrabbable Buckos stuck at the door). Lumber guys only join a lumber line, and regular Buckos never pull a lumber guy into theirs.";
 const DISCLAIMER = 'Buckards is a parody game. Not affiliated with or endorsed by any real store.';
 const UPDATE_URL = "https://raw.githubusercontent.com/woodgrain816/Buckards-releases/main/update.json";
 
@@ -52,7 +52,7 @@ function resize() {
   // A tall touch screen (a tablet held upright, or one that won't rotate for us) gets the game drawn turned 90 degrees,
   // so it always plays sideways. cw/ch are the game's own (sideways) width and height either way.
   ROT = (MOBILE || matchMedia('(pointer:coarse)').matches) && innerHeight > innerWidth * 1.05;
-  cw = ROT ? innerHeight : innerWidth; ch = ROT ? innerWidth : innerHeight;
+  cw = Math.max(320, ROT ? innerHeight : innerWidth); ch = Math.max(180, ROT ? innerWidth : innerHeight);   // a minimised or 0-size window must not divide by zero
   cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
   cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
   cv.style.transformOrigin = '0 0'; cv.style.transform = ROT ? `translateX(${ch}px) rotate(90deg)` : '';
@@ -270,6 +270,7 @@ const M = {
     const a = S.ac; if (!a) return;
     const tense = G.state === 'play' && (G.timer < 20 || G.strikes >= MAX_STRIKES - 1);
     const bpm = tense ? 132 : 96, eighth = 60 / bpm / 2;
+    if (this.next < a.currentTime - 0.2) this.next = a.currentTime + 0.05;   // fell behind (a busy laptop): skip ahead, never pile up notes
     while (this.next < a.currentTime + 0.35) { this.play(this.step, this.next, eighth); this.next += eighth; this.step++; }
   },
   play(step, t, e) {
@@ -428,7 +429,7 @@ function newBucko(type, x, y, entering) {
   const golden = type !== 'contractor' && Math.random() < (0.05 + 0.02 * upL('golden')) * (G.boost === 'lucky' ? 3 : 1), look = makeLook(type);
   if (golden) Object.assign(look, { shirt: 'flannel', shirtCol: '#c9970f', hat: 'blaze', hatCol: '#e8b923' });
   return { inT: G.timer, golden, type, x, y, surname: pick(SURNAMES), voice: rnd(170, 330), name: nameBag.pop(), item: it[0], price: it[1], area: it[2], kind: it[3], look,
-    state: entering ? 'entering' : 'shop', target: entering ? { x: 190, y: 640 } : null, pause: rnd(0, 1.5),
+    state: entering ? 'entering' : 'shop', target: entering ? { x: rnd(160, 340), y: rnd(570, 680) } : null, enterT: 0, pause: rnd(0, 1.5),
     stuck: 0, cool: 0, has: false, hunt: 0, need: rnd(1.6, 3.4), scanned: false, scanT: 0, walk: rnd(0, 6), out: 0,
     dir: 1, vx: 0, vy: 0, seed: rnd(0, 10), say: null, chat: rnd(4, 12), lure: 0, nag: 0, patience: 0, patMax: 1,
     sneaky: type !== 'contractor' && Math.random() < Math.min(0.5, (0.02 + 0.025 * G.day) * dv('sneak')) };
@@ -547,7 +548,7 @@ function startDay(resumed) {
   if (!G.quest) newQuest();
   { const kinds = ['spill', 'hotdog', 'bus', 'raccoon'].sort(() => Math.random() - 0.5);
     const n = G.day === 1 ? 1 : G.day < 4 ? 2 : 3;
-    for (let i = 0; i < n; i++) G.events.push({ kind: G.day === 1 ? 'spill' : kinds[i], at: c.time * (0.75 - i * 0.22) - rnd(0, 8) }); }
+    for (let i = 0; i < n; i++) { const k = G.day === 1 ? 'spill' : kinds[i]; let at = c.time * (0.75 - i * 0.22) - rnd(0, 8); if (k === 'bus') at = Math.max(at, Math.min(75, c.time * 0.6)); G.events.push({ kind: k, at }); } }
   if (G.mod === 'slippery') for (const at of [0.85, 0.55, 0.3]) G.events.push({ kind: 'spill', at: c.time * at });
   if (G.day >= 2) for (let i = 0; i < (G.day >= 8 ? 2 : 1); i++) G.events.push({ kind: 'price', at: c.time * rnd(0.25, 0.8) });
   if (G.day >= 3 && G.spawns.length) pick(G.spawns).mystery = true;
@@ -1054,6 +1055,7 @@ const stickReach = () => joyR() * STICK[SET.stick ?? 1];
 function joyR() { return clamp(Math.min(cw, ch) * 0.13, 46, 70) * [0.8, 1, 1.25][SET.joySize]; }
 
 addEventListener('keydown', e => {
+  if (e.target && /^(TEXTAREA|INPUT)$/.test(e.target.tagName)) return;   // typing in the save-code box
   G.lastInput = performance.now();
   if (keys[e.code]) return; keys[e.code] = true;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -1106,7 +1108,7 @@ function spawnCoins(x, y, n) {           // world point -> flying to the wallet 
 }
 function reopen() { G.level = Math.min(G.level + 1, LADDER.length - 1); G.strikes = Math.min(MAX_STRIKES - 1, Math.floor((G.extra || 0) / 2)); G.extra = 0; G.tickets = 0; G.day++; startDay(); M.start(); }
 function primary() {                       // Space / Enter: the obvious next thing on each screen
-  if (G.state === 'title') { if (META.loginReward) META.loginReward = null; else if (G.showBadges || G.showUpgrades || G.showMissions || G.showSettings) G.showBadges = G.showUpgrades = G.showMissions = G.showSettings = false; else { const run = store.get('run', null); newGame(run && run.day ? run : undefined); } }
+  if (G.state === 'title') { if (META.loginReward) META.loginReward = null; else if (G.showBadges || G.showUpgrades || G.showMissions || G.showSettings) G.showBadges = G.showUpgrades = G.showMissions = G.showSettings = false; else { const run = store.get('run', null); newGame(run && run.day && (run.diff || 0) === (META.diff || 0) ? run : undefined); } }
   else if (G.state === 'intro') openDoors();
   else if (G.state === 'summary') G.state = G.won ? 'victory' : 'shop';
   else if (G.state === 'shop') { G.day++; startDay(); }
@@ -1304,7 +1306,7 @@ function update(dt) {
     if (b.state === 'chain') continue;
     b.cool -= dt; b.lure -= dt;
     const T = TYPES[b.type];
-    if (b.state === 'entering') { if (stepToward(b, b.target, 90, dt) < 6) { b.state = 'shop'; b.target = null; } b.walk += dt * 7; continue; }
+    if (b.state === 'entering') { b.enterT = (b.enterT || 0) + dt; if (stepToward(b, b.target, 90, dt) < 20 || (b.enterT > 3.5 && b.y < 760)) { b.state = 'shop'; b.target = null; b.cool = Math.max(b.cool, 2); } b.walk += dt * 7; continue; }   // each walks in to his own spot; a crowd can never jam the door
     // waiting customers run out of patience, and then they run
     if (b.state === 'wait' && b.type !== 'contractor' && !b.scanned) {
       if (!(G.hotdogT > 0)) b.patience -= dt;
@@ -1338,7 +1340,9 @@ function update(dt) {
     if (b.state === 'leaving') continue;
     if (b.cool <= 0 && dist(b, p) < 40) {
       const wasRunner = b.state === 'runner';
-      if (p.chain.length < maxLine()) {
+      const mixed = p.chain.length && (p.chain[0].type === 'contractor') !== (b.type === 'contractor');   // lumber guys only line up with lumber guys
+      if (mixed && !wasRunner) { if (G.clock - (G.mixT || 0) > 2.5) { G.mixT = G.clock; pop(b.x, b.y - 52, b.type === 'contractor' ? 'LUMBER LINE ONLY' : 'NOT A LUMBER GUY', '#ffcc00', 16); } }
+      else if (!mixed && p.chain.length < maxLine()) {
         b.state = 'chain'; b.lure = 0; p.chain.push(b); S.join(); buzz(15);
         if (wasRunner) { say(b, 'caught', 1.8); pop(b.x, b.y - 52, 'CAUGHT!', '#7dff7d', 22); questTick('catch', 1); career('caught', 1); addXP(15); mission('catch'); } else say(b, 'join', 1.6);
       } else if (wasRunner) { b.state = 'wait'; b.patience = 15; b.cool = 1.5; say(b, 'caught', 1.8); pop(b.x, b.y - 52, 'STOPPED', '#7dff7d', 20); questTick('catch', 1); }
@@ -1509,6 +1513,8 @@ function scratch() {
   mission('scratch');
 }
 function endDay(closing) {
+  const late = G.buckos.filter(b => b.state !== 'leaving' && !b.king && (b.state === 'entering' || (b.inT ?? 999) - G.timer < 45));   // walked in right before closing: no time to shop, not your fault
+  if (closing && late.length) { G.buckos = G.buckos.filter(b => !late.includes(b)); G.player.chain = G.player.chain.filter(b => !late.includes(b)); }
   const left = G.buckos.filter(b => b.state !== 'leaving');
   S.buzzer();
   if (closing && left.length) {
@@ -2862,7 +2868,12 @@ function drawTitle(t) {
     if (!lock) hit(x, 624, 168, 34, () => { META.diff = i; store.set('diff', i); });
   });
   const run = store.get('run', null);
-  if (run && run.day) {                              // a saved run: carry on, or (two taps) start over
+  const DN = ['NORMAL', 'HARD', 'NIGHTMARE'];
+  if (run && run.day && (run.diff || 0) !== (META.diff || 0)) {   // picked a different difficulty than the saved run: that means a new run
+    button(620, 690, 360, 54, `START ${DN[META.diff || 0]} RUN`, () => newGame(), { size: 26, bg: ['#0a7a36', '#c26a00', '#8a1a1a'][META.diff || 0], bg2: ['#1fae4b', '#e08a10', '#c0392b'][META.diff || 0] });
+    button(620, 750, 360, 30, `or CONTINUE ${DN[run.diff || 0]} · DAY ${run.day}`, () => { META.diff = run.diff || 0; store.set('diff', META.diff); newGame(run); },
+      { size: 13, bg: '#33503d', bg2: '#4a6f55' });
+  } else if (run && run.day) {                              // a saved run: carry on, or (two taps) start over
     button(620, 690, 360, 54, `CONTINUE · DAY ${run.day}`, () => newGame(run), { size: 28 });
     const sure = G.newRunArm && G.clock - G.newRunArm < 3;
     button(620, 750, 360, 30, sure ? 'TAP AGAIN TO START OVER AT DAY 1' : 'NEW RUN (start over)', () => { if (sure) newGame(); else G.newRunArm = G.clock; },
@@ -3266,27 +3277,71 @@ function drawSettings(close) {
   }, { size: armed ? 14 : 15, bg: '#8a1a1a', bg2: '#c0392b' });
   text('Save code = all your progress. Load it on another website or device.', Rx + 200, 692, 12, '#777', 'center', '700', null, FB);
   text('Buckards v' + (APP && APP.version ? APP.version() : GR_VERSION) + '  ·  minimap: tap its - to tuck it away', Rx + 200, 712, 12, '#777', 'center', '700', null, FB);
+  { const le = store.get('lastErr', null);
+    if (le && !(G.saveNote && G.clock - G.saveNote.t < 4)) fitText(`Last error (v${le.v}, day ${le.day}, ${le.state}): ${le.m}`, Rx + 200, 732, 400, 11, '#c0392b', 'center', '700', FB); }
   if (touchy()) text('Phone tip: drag anywhere to walk, double-tap to dash.', L + 200, 700, 13, '#555', 'center', '700', null, FB);
   button(650, 760, 300, 56, 'DONE', close, { size: 22 });
 }
-function exportSave() {
+/* save codes: shown in the game's own box (school Chromebooks block or cut off the browser's prompt popups).
+   BUCKARDS2 = deflate-compressed (much shorter); BUCKARDS1 codes from older versions still load. */
+const unzip = (bytes, how) => new Response(new Blob([bytes]).stream().pipeThrough(how)).arrayBuffer().then(x => new Uint8Array(x));
+async function packSave() {
   const data = {}; try { for (const k of Object.keys(localStorage)) if (k.startsWith('grenards_')) data[k] = localStorage.getItem(k); } catch (e) {}
-  const bytes = new TextEncoder().encode(JSON.stringify(data)); let bin = ''; for (const x of bytes) bin += String.fromCharCode(x);
-  const code = 'BUCKARDS1:' + btoa(bin);
-  const done = () => { G.saveNote = { text: 'Save code copied! Paste it into LOAD SAVE CODE on the other one.', t: G.clock }; };
-  try { navigator.clipboard.writeText(code).then(done, () => { prompt('Copy your save code:', code); done(); }); } catch (e) { prompt('Copy your save code:', code); done(); }
+  let bytes = new TextEncoder().encode(JSON.stringify(data)), tag = 'BUCKARDS1:';
+  if (window.CompressionStream) try { bytes = await unzip(bytes, new CompressionStream('deflate')); tag = 'BUCKARDS2:'; } catch (e) {}
+  let bin = ''; for (const x of bytes) bin += String.fromCharCode(x);
+  return tag + btoa(bin);
 }
-function importSave() {
-  const code = (prompt('Paste your Buckards save code here.\nThis REPLACES the progress on this device.') || '').trim();
-  if (!code) return;
-  try {
-    if (!code.startsWith('BUCKARDS1:')) throw 0;
-    const data = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(code.slice(10)), ch => ch.charCodeAt(0))));   // (not escape(): that name is the runaway-Bucko function)
-    for (const k of Object.keys(localStorage)) if (k.startsWith('grenards_')) localStorage.removeItem(k);
-    for (const [k, v] of Object.entries(data)) if (k.startsWith('grenards_')) localStorage.setItem(k, v);
-    location.reload();
-  } catch (e) { alert("That doesn't look like a Buckards save code. Copy the whole thing and try again."); }
+async function unpackSave(raw) {
+  const t = String(raw || '').replace(/\s+/g, ''), i = t.search(/BUCKARDS[12]:/i);    // spaces/line breaks from chat apps are fine
+  if (i < 0) throw new Error('nohead');
+  const ver = t[i + 8], b64 = t.slice(i + 10).replace(/-/g, '+').replace(/_/g, '/').replace(/[^A-Za-z0-9+/=]/g, '');
+  let bytes, data;
+  try { bytes = Uint8Array.from(atob(b64), ch => ch.charCodeAt(0)); if (ver === '2') bytes = await unzip(bytes, new DecompressionStream('deflate')); data = JSON.parse(new TextDecoder().decode(bytes)); }
+  catch (e) { throw new Error('cut'); }     // (not escape(): that name is the runaway-Bucko function)
+  if (!data || typeof data !== 'object' || !Object.keys(data).some(k => k.startsWith('grenards_'))) throw new Error('cut');
+  return data;
 }
+function saveBox(mode) {
+  const old = document.getElementById('saveBox'); if (old) old.remove();
+  const d = document.createElement('div'); d.id = 'saveBox';
+  d.style.cssText = 'position:fixed;inset:0;z-index:50;background:rgba(4,18,10,0.82);display:flex;align-items:center;justify-content:center;padding:16px;font:700 15px "Segoe UI",Arial,sans-serif;touch-action:auto';
+  const btn = 'border:0;border-radius:10px;padding:12px 18px;font:900 15px "Segoe UI",Arial,sans-serif;color:#fff;cursor:pointer;margin:6px';
+  d.innerHTML = `<div style="background:#fbf7ea;border:4px solid #ffe14d;border-radius:16px;padding:18px 20px;max-width:560px;width:100%;color:#1c2a20;text-align:center">
+    <div style="font:900 24px 'Arial Black',Arial,sans-serif;color:#0a7a36;margin-bottom:6px">${mode === 'copy' ? 'YOUR SAVE CODE' : 'LOAD A SAVE CODE'}</div>
+    <div id="sbHelp" style="color:#555;margin-bottom:10px">${mode === 'copy' ? 'Making your code...' : 'Paste your whole save code below. This REPLACES the progress on this device.'}</div>
+    <textarea id="sbText" spellcheck="false" style="width:100%;box-sizing:border-box;height:130px;font:12px Consolas,monospace;border:2px solid #9fb7a6;border-radius:8px;padding:8px;resize:none;word-break:break-all" ${mode === 'copy' ? 'readonly' : 'placeholder="BUCKARDS2:..."'}></textarea>
+    <div id="sbNote" style="min-height:20px;margin:8px 0 2px;color:#c0392b"></div>
+    <button id="sbGo" style="${btn};background:#1fae4b">${mode === 'copy' ? 'COPY' : 'LOAD IT'}</button>
+    <button id="sbX" style="${btn};background:#8a1a1a">CLOSE</button></div>`;
+  document.body.appendChild(d);
+  const ta = d.querySelector('#sbText'), note = d.querySelector('#sbNote'), say = (m, ok) => { note.textContent = m; note.style.color = ok ? '#0a7a36' : '#c0392b'; };
+  d.querySelector('#sbX').onclick = () => d.remove();
+  if (mode === 'copy') {
+    packSave().then(code => {
+      ta.value = code; d.querySelector('#sbHelp').textContent = `${code.length.toLocaleString()} characters. Copy ALL of it, then LOAD SAVE CODE on the other website or device.`;
+      ta.focus(); ta.select();
+    });
+    d.querySelector('#sbGo').onclick = () => {
+      ta.focus(); ta.select(); let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      const done = () => { say('Copied! Now paste it into LOAD SAVE CODE on the other one.', true); G.saveNote = { text: 'Save code copied!', t: G.clock }; };
+      if (navigator.clipboard) navigator.clipboard.writeText(ta.value).then(done, () => ok ? done() : say('Your Chromebook blocked copying. The code is selected: press Ctrl+C.'));
+      else ok ? done() : say('The code is selected: press Ctrl+C to copy it.');
+    };
+  } else {
+    setTimeout(() => ta.focus(), 50);
+    d.querySelector('#sbGo').onclick = () => unpackSave(ta.value).then(data => {
+      for (const k of Object.keys(localStorage)) if (k.startsWith('grenards_')) localStorage.removeItem(k);
+      for (const [k, v] of Object.entries(data)) if (k.startsWith('grenards_')) localStorage.setItem(k, v);
+      say('Loaded! Restarting...', true); setTimeout(() => location.reload(), 600);
+    }, e => say(e.message === 'nohead'
+      ? 'That is not a Buckards save code. It starts with BUCKARDS1: or BUCKARDS2:'
+      : `That code is cut off or changed (${ta.value.replace(/\s+/g, '').length.toLocaleString()} characters pasted). Copy the WHOLE code again - use the COPY button, or Ctrl+A then Ctrl+C.`));
+  }
+}
+function exportSave() { saveBox('copy'); }
+function importSave() { saveBox('load'); }
 function drawPause() {
   if (G.showSettings) { drawSettings(() => { G.showSettings = false; }); return; }
   paper(560, 250, 480, 582);
@@ -3448,7 +3503,25 @@ function drawCoins() {
 /* ------------------------------------------------------------ frame */
 let last = performance.now(), lastState = 'title', fadeT = 0;
 const perf = { n: 0, sum: 0, t: 0 };
+/* crash guard: one bad frame must never freeze or end the game. The error is kept so Settings can show it. */
+function noteErr(e, where) {
+  const m = String((e && (e.message || e.reason && e.reason.message)) || e).slice(0, 140);
+  const line = ((e && e.stack) || '').split('\n')[1] || '';
+  try { store.set('lastErr', { m, at: line.trim().slice(0, 80), where, day: G.day, state: G.state, v: GR_VERSION, when: Date.now() }); } catch (x) {}
+}
+addEventListener('error', e => noteErr(e.error || e.message, 'window'));
+addEventListener('unhandledrejection', e => noteErr(e.reason, 'promise'));
+let errBurst = 0;
 function frame(now) {
+  try { frameInner(now); errBurst = 0; }
+  catch (e) {
+    noteErr(e, 'frame');
+    for (let i = 0; i < 30; i++) g.restore();
+    if (++errBurst > 120 && G.state === 'play') { errBurst = 0; G.state = 'pause'; }   // stuck in a loop of errors: stop on the break screen, not a frozen one
+    requestAnimationFrame(frame);
+  }
+}
+function frameInner(now) {
   const raw = (now - last) / 1000;
   if (gfxMode === 'auto' && !autoLow && G.state === 'play' && !document.hidden) {
     perf.n++; perf.sum += raw; perf.t += raw;
